@@ -129,7 +129,7 @@ def assign_landing_time(
 
     return df_flights
 
-def preprocess_traffic(flights, relevant_time=None):
+def preprocess_traffic(flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"]):
     """
     takes in Traffic object, selects only full flights, combines flights together which belong together and assigns
     unique identifier, which uses callsign and firstseen-timestamp to uniquely identify flights. Calculates distance
@@ -140,8 +140,6 @@ def preprocess_traffic(flights, relevant_time=None):
     relevant_time can be assigned which will filter flights, which have any data-point within the specified interval.
     Interval must be a list of strings in the form "yyyy-mm-dd hh:mm:ss", "yyyy-mm-dd hh:mm:ss""
     """
-    if not relevant_time:
-        relevant_time = ["1970-01-01 00:00:00", "2030-01-01 00:00:00"]
 
     df = assign_landing_time(flights, relevant_time)
     # remove onground True values after (including) plane has landed.
