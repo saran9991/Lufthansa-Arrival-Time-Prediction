@@ -25,7 +25,9 @@ Added a directory for data under the playground directory for better access to a
 
 Added an **airports dataset** which contains the coordinates of every airport worldwide.
 ## 6. Other things to mention related to assigning origin
-Another important thing to note is that some aircraft have `onground = True` even when taking off. Earlier, it was assumed that all flights have `onground = False` when taking off but this is not the case for some aircraft. For example, the first recorded location of an aircraft could be an intermediate airport where the aircraft landed and then took off again for its final destination. In such cases, the `assign_origin()` method would not assign the correct origin airport. This could also affect the accuracy of the `get_first_rows()` method, which is used in the `assign_origin()` method.
+Another important thing to note is that some aircraft have `onground = True` even when taking off. Earlier, it was assumed that all flights have `onground = False` when taking off but this is not the case for some aircraft. For example, the first recorded location of an aircraft could be an intermediate airport where the aircraft landed and then took off again for its final destination. 
+
+For example, the entire flight could be **( USA - Morroco - Frankfurt )**.  But of course, if we are not focusing on complete flights at all, this would not be an issue. But if the flights are not complete, finding the source airport would be cumbersome and plotting the aircrafts on the globe would not make much sense other than just showing all the flights arriving to Frankfurt.   
 
 Also, in the `get_complete_flights()` method, instead of passing the trajectories, changed the code to pass dataframe, makes things more concise. 
 
