@@ -31,5 +31,9 @@ For example, the entire flight could be **( USA - Morroco - Frankfurt )**.  But 
 
 Also, in the `get_complete_flights()` method, instead of passing the trajectories, changed the code to pass dataframe, makes things more concise. 
 
+## 7. Created another branch for updating assign_origin 
+
+The ``assign_origin()`` method now works faster using R-Tree Index
+
 ---
 
