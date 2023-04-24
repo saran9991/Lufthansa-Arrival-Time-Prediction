@@ -19,10 +19,11 @@ if __name__ == "__main__":
     model = load_model(".." + os.sep + "trained_models" + os.sep + "model_large")
 
     load_data(queue, epochs=1, flight_files=data_files, threads=5)
-    data_process = Process(target=load_data, args=(queue, 10, data_files, 3))
+    data_process = Process(target=load_data, args=(queue, 40, data_files, 3))
     data_process.start()
     while True:
         X, y = queue.get()
+        print("loading data finished. Fitting on new batch")
         X_scaled = scaler.transform(X)
 
         while queue.empty():
