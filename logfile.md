@@ -35,7 +35,13 @@ Also, in the `get_complete_flights()` method, instead of passing the trajectorie
 The ``assign_origin()`` method now works faster using R-Tree Index
 
 ## 8. Created another branch for plots
-Undeveloped branch for plots. Will add more stuff later. 
+Undeveloped branch for plots. Will add more stuff later.
+
+## 9. Created another branch for adding holidays, weekdays and months of the year
+This method uses the holidays library to find holidays in Hessen.
+
+To install holidays, run `pip install holidays`.
+
 
 ---
 
