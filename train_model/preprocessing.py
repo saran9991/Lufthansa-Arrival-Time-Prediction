@@ -1,10 +1,7 @@
-import traffic
-from traffic.data import opensky
 from traffic.core import Traffic
-from rich.pretty import pprint
 import numpy as np
 import pandas as pd
-import copy
+import holidays
 from datetime import datetime
 pd.options.mode.chained_assignment = None
 # Magic Numbers
@@ -114,6 +111,21 @@ def assign_landing_time(
 
     return df_flights
 
+def add_month_weekday(df):
+    df["month"] = df["timestamp"].dt.month
+    df["weekday"] = df["timestamp"].dt.isocalendar().day-1 # Monday: 0, Sunday: 6
+    return df
+def add_holiday(df, years):
+    # Get Frankfurt holidays for the specified year
+    hessen_holidays = holidays.Germany(years=years, state='HE')
+    hessen_holidays_dates = np.array([date for date in hessen_holidays.keys()])
+
+    # Add the holiday column to the DataFrame
+    df["holiday"] = df["timestamp"].dt.date.isin(hessen_holidays_dates)
+    return df
+
+
+
 def preprocess_traffic(flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"]):
     """
     takes in Traffic object, selects only full flights, combines flights together which belong together and assigns
@@ -132,9 +144,18 @@ def preprocess_traffic(flights, relevant_time=["1970-01-01 00:00:00", "2030-01-0
 
     # onground is no longer needed.
     df = df.drop("onground",axis=1)
-
+    df = add_month_weekday(df)
+    years = list(df.timestamp.dt.year.unique())
+    df = add_holiday(df, years)
     return df
 
+def generate_dummy_columns(df: pd.DataFrame):
+    weekday_dummies = pd.get_dummies(df.weekday, prefix='weekday')
+    df[list(weekday_dummies.columns)] = weekday_dummies
+    month_dummies = pd.get_dummies(df.month, prefix='month')
+    df[list(month_dummies.columns)] = month_dummies
+    df["holiday"] = df["holiday"].astype(int)
+    return df
 def seconds_till_arrival(flights_data: pd.DataFrame):
     time_till_arrival = flights_data["arrival_time"]- flights_data["timestamp"]
     seconds = time_till_arrival.dt.total_seconds()
