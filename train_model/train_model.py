@@ -14,10 +14,11 @@ if __name__ == "__main__":
     print("Num GPUs Available: ", len(tf_config.list_physical_devices('GPU')))
     queue = Queue()
     batch_size = 128
-
-    scaler = load_scaler(".." + os.sep + "trained_models" + os.sep + "new_scaler.bin")
-    model = load_model(".." + os.sep + "trained_models" + os.sep + "model_large")
-
+    scaler_file = ".." + os.sep + "trained_models" + os.sep + "std_scaler.bin"
+    model_file = ".." + os.sep + "trained_models" + os.sep + "model_large"
+    scaler = load_scaler(scaler_file)
+    model = load_model(model_file)
+    print(model.summary())
     load_data(queue, epochs=1, flight_files=data_files, threads=5)
     data_process = Process(target=load_data, args=(queue, 40, data_files, 3))
     data_process.start()
@@ -28,4 +29,4 @@ if __name__ == "__main__":
 
         while queue.empty():
             model.fit(X_scaled, y, batch_size=batch_size)
-            model.save(file)
+            model.save(model_file)
