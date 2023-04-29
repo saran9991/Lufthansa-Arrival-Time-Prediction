@@ -152,8 +152,16 @@ def preprocess_traffic(flights, relevant_time=["1970-01-01 00:00:00", "2030-01-0
 def generate_dummy_columns(df: pd.DataFrame):
     weekday_dummies = pd.get_dummies(df.weekday, prefix='weekday')
     df[list(weekday_dummies.columns)] = weekday_dummies
+    for i in range(7):
+        weekday_name = "weekday_" + str(i)
+        if weekday_name not in df.columns:
+            df[weekday_name] = 0
     month_dummies = pd.get_dummies(df.month, prefix='month')
     df[list(month_dummies.columns)] = month_dummies
+    for i in range(1, 13):
+        month_name = "month_" + str(i)
+        if month_name not in df.columns:
+            df[month_name] = 0
     df["holiday"] = df["holiday"].astype(int)
     return df
 def seconds_till_arrival(flights_data: pd.DataFrame):

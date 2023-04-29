@@ -1,5 +1,5 @@
 from traffic.core import Traffic
-from preprocessing import preprocess_traffic, seconds_till_arrival
+from preprocessing import preprocess_traffic, seconds_till_arrival, generate_dummy_columns
 import h5py
 import numpy as np
 import pandas as pd
@@ -12,8 +12,8 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
     first = True
     for file in file_batch:
         with h5py.File(file, 'r') as f:
-            for key in list(f.keys()):
 
+            for key in list(f.keys()):
                 try:
                     flights = Traffic.from_file(file, key=key,
                                             parse_dates=["day", "firstseen", "hour", "last_position",
@@ -27,14 +27,26 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
                     continue
 
                 df = df_flights[
-                    ["distance", "altitude", "geoaltitude", "arrival_time", "timestamp", "vertical_rate",
-                     "groundspeed"]].dropna()
+                    [
+                        "distance",
+                        "altitude",
+                        "geoaltitude",
+                        "arrival_time",
+                        "timestamp",
+                        "vertical_rate",
+                        "groundspeed",
+                        "month",
+                        "weekday",
+                        "holiday"
+                    ]
+                ].dropna()
                 df_sample = df.sample(frac=sample_fraction)
                 if not first:
                     df_train = pd.concat([df_sample, df_train])
                 else:
                     df_train = df_sample
                     first = False
+
     data_queue.put(df_train)
 
 
@@ -56,10 +68,13 @@ def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1):
         for thread_nr in range(1, threads):
             print(thread_nr)
             df_train = pd.concat([df_train, data_queue.get()])
-        X = np.array(df_train[["distance", "altitude", "geoaltitude", "vertical_rate",
-                               "groundspeed"]])  # we only take the feature
+
+        df_train = generate_dummy_columns(df_train)
+        #shuffle the dataframe
+        df_train = df_train.sample(frac=1)
         y = seconds_till_arrival(df_train)
+        features = df_train.drop(columns=["arrival_time", "timestamp", "month", "weekday"])
 
         while not queue.empty():
             time.sleep(2)
-        queue.put((X, y))
+        queue.put((features, y))
