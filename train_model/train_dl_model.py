@@ -6,13 +6,29 @@ from data_loader import load_data
 import pandas as pd
 import os
 
-def batch_generator(df: pd.DataFrame, y, batchsize):
+def batch_generator(df: pd.DataFrame, y, batchsize, with_sample_weights = False, sample_weights=None ):
+    # we want to penalize errors more strongly if the aircraft is far away from arrival and less severely
+    # when nearer
     size = df.shape[0]
     i = 0
     while i < size:
-        yield df.iloc[i:i+batchsize,:], y.iloc[i:i+batchsize].values
+        X_batch = df.iloc[i:i+batchsize,:]
+        y_batch = y.iloc[i:i+batchsize].values
+        if with_sample_weights:
+            sample_batch = sample_weights.iloc[i:i+batchsize].values
+            yield X_batch, y_batch, sample_batch
+        else:
+            yield X_batch, y_batch
         i += batchsize
-    yield df.iloc[i:,:], y.iloc[i:].values
+
+    X_batch = df.iloc[i:,:]
+    y_batch = y.iloc[i:].values
+    if with_sample_weights:
+        sample_batch = sample_weights.iloc[i:i+batchsize].values
+        yield X_batch, y_batch, sample_batch
+    else:
+        yield X_batch, y_batch
+
 
 if __name__ == "__main__":
     data_files = []
@@ -24,7 +40,7 @@ if __name__ == "__main__":
     queue = Queue()
     batch_size = 128
     scaler_file = ".." + os.sep + "trained_models" + os.sep + "std_scaler_reg.bin"
-    model_file = ".." + os.sep + "trained_models" + os.sep + "model_with_cat"
+    model_file = '../trained_models/model_with_cycle'
     scaler = load_scaler(scaler_file)
     model = load_model(model_file)
     print(model.summary())
@@ -33,10 +49,24 @@ if __name__ == "__main__":
     data_process.start()
     while True:
         X, y = queue.get()
+        # weights sample importance by distance from destination
+        sample_weights = 1 / X.distance
+        weights_normalized = sample_weights / sample_weights.mean()
+
+        # scale numeric features
+        cols_numeric = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
+        X_numeric = X[cols_numeric]
+        X[cols_numeric] = scaler.transform(X_numeric)
 
         print("loading data finished. Fitting on new batch")
 
         while queue.empty():
-            gen = batch_generator(X, y, batch_size)
+            gen = batch_generator(
+                df=X,
+                y=y,
+                batchsize=batch_size,
+                with_sample_weights=True,
+                sample_weights=weights_normalized
+            )
             model.fit(gen, max_queue_size=2000)
             model.save(model_file)
