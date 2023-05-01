@@ -40,7 +40,7 @@ if __name__ == "__main__":
     queue = Queue()
     batch_size = 128
     scaler_file = ".." + os.sep + "trained_models" + os.sep + "std_scaler_reg.bin"
-    model_file = '../trained_models/model_with_cycle'
+    model_file = '../trained_models/model_with_cycle_no_month'
     scaler = load_scaler(scaler_file)
     model = load_model(model_file)
     print(model.summary())
@@ -50,8 +50,8 @@ if __name__ == "__main__":
     while True:
         X, y = queue.get()
         # weights sample importance by distance from destination
-        sample_weights = 1 / X.distance
-        weights_normalized = sample_weights / sample_weights.mean()
+        #sample_weights = 1 / X.distance
+        #weights_normalized = sample_weights / sample_weights.mean()
 
         # scale numeric features
         cols_numeric = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
@@ -65,8 +65,8 @@ if __name__ == "__main__":
                 df=X,
                 y=y,
                 batchsize=batch_size,
-                with_sample_weights=True,
-                sample_weights=weights_normalized
+                #with_sample_weights=True,
+                #sample_weights=weights_normalized
             )
             model.fit(gen, max_queue_size=2000)
             model.save(model_file)

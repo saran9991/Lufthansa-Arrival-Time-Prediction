@@ -154,7 +154,7 @@ def preprocess_traffic(flights, relevant_time=["1970-01-01 00:00:00", "2030-01-0
     return df
 
 
-def generate_dummy_columns(df: pd.DataFrame):
+def generate_dummy_columns(df: pd.DataFrame, with_month = True):
     weekday_dummies = pd.get_dummies(df.weekday, prefix='weekday')
     for i in range(7):
         weekday_name = "weekday_" + str(i)
@@ -163,14 +163,14 @@ def generate_dummy_columns(df: pd.DataFrame):
     weekday_dummies = weekday_dummies.sort_index(axis=1)
     df[list(weekday_dummies.columns)] = weekday_dummies
 
-
-    month_dummies = pd.get_dummies(df.month, prefix='month')
-    for i in range(1, 13):
-        month_name = "month_" + str(i)
-        if month_name not in df.columns:
-            df[month_name] = 0
-    month_dummies = month_dummies.sort_index(axis=1)
-    df[list(month_dummies.columns)] = month_dummies
+    if with_month:
+        month_dummies = pd.get_dummies(df.month, prefix='month')
+        for i in range(1, 13):
+            month_name = "month_" + str(i)
+            if month_name not in df.columns:
+                df[month_name] = 0
+        month_dummies = month_dummies.sort_index(axis=1)
+        df[list(month_dummies.columns)] = month_dummies
 
     df["holiday"] = df["holiday"].astype(int)
     return df
@@ -190,15 +190,17 @@ def generate_cyclical_day(timestamp):
     day_cos = np.cos(2 * np.pi * days_scaled)
     return day_sin, day_cos
 
-def generate_aux_columns(df):
+def generate_aux_columns(df, with_month = False):
     df["weekday"] = df["timestamp"].dt.isocalendar().day - 1  # Monday: 0, Sunday: 6
-    df["month"] = df["timestamp"].dt.month
+    if with_month:
+        df["month"] = df["timestamp"].dt.month
+
     years = list(df.timestamp.dt.year.unique())
     df["holiday"] = generate_holidays(df.timestamp, years)
     df["sec_sin"], df["sec_cos"] = generate_cyclical_second(df.timestamp)
     df["day_sin"], df["day_cos"] = generate_cyclical_day(df.timestamp)
-    df = generate_dummy_columns(df)
-    df = df.drop(columns=["weekday", "month"])
+    df = generate_dummy_columns(df,with_month=with_month)
+    df = df.drop(columns=["weekday", "month"]) if with_month else df.drop(columns=["weekday"])
     return df
 
 def seconds_till_arrival(flights_data: pd.DataFrame):
