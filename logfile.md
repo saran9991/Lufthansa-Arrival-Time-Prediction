@@ -1,6 +1,6 @@
 # Logfile - Lufthansa
 
-*Last updated: 24th April, 2023*\
+*Last updated: 05th Mai, 2023*\
 *Points 1 to 6 added on 13th April, 2023*
 
 ###### This logfile contains updates to the Lufthansa Project.
@@ -41,6 +41,23 @@ Undeveloped branch for plots. Will add more stuff later.
 This method uses the holidays library to find holidays in Hessen.
 
 To install holidays, run `pip install holidays`.
+
+## 10. The train_models folder contains all the logic to preprocess, load data and train model. All is combined in the train_dl_model.py script
+
+## 11. data_loader.py enables loading the raw-files from the data-folder and processing them in such a way as to allow multi-processing
+
+## 12. trained_models includes the keras-trained deep-learning models, standard-scaler and is used as directory to store eveything which is trained
+
+## 13. Timestamp-feature-engineering: Weekday as one-hot-encoded, holiday as binary, and timestamp as sine- and cosine of seconds within day
+and day within year 
+
+## 14. In branch data_loader_edgeflights now most of the edgeflights are also properly preprocessed and integrated into data-loader. 
+Only edge-cases between the data-batches aren't integrated yet.
+
+## 15. The preprocessing steps are more memory-efficient now. Data-Frames are main obejects operated on, not Traffic-objects
+
+## 16. Current best model is model_with_cycle_no_montl
+
 
 
 ---
