@@ -12,6 +12,7 @@ from tqdm.auto import tqdm
 
 def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
     first_day = True
+    nthrows = int(1 // sample_fraction)
     for file in file_batch:
         with h5py.File(file, 'r') as f:
             for key in tqdm(list(f.keys()),desc=file):
@@ -33,7 +34,9 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
                             "groundspeed",
                         ]
                     ].dropna()
-                    df_flights = df_flights.sample(frac=sample_fraction)
+
+                    #df_flights = df_flights.sample(frac=sample_fraction)
+                    df_flights = df_flights.iloc[::nthrows, :]
                     first_day = False
                 else:
                     old_flights = pd.concat([old_flights,new_flights])
@@ -53,7 +56,8 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
                         ]
                     ].dropna()
                     del(old_flights)
-                    df_add_flights = df_add_flights.sample(frac=sample_fraction)
+                    #df_add_flights = df_add_flights.sample(frac=sample_fraction)
+                    df_add_flights = df_add_flights.iloc[::nthrows, :]
                     df_flights = pd.concat([df_flights, df_add_flights])
                     del(df_add_flights)
                 old_flights = new_flights
