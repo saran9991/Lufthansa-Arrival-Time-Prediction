@@ -58,6 +58,13 @@ Only edge-cases between the data-batches aren't integrated yet.
 
 ## 16. Current best model is model_with_cycle_no_montl
 
+## 17. Trained model with dropout layer to reduce overfitting and thinned out training data with using 0.1% of training data
+Current best model is model_model_very_thin_dropout
+
+## 18. Plotted L1-Loss by distance in playground notebook
+
+## 19. Updated environment file
+
 
 
 ---
