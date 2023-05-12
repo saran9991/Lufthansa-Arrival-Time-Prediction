@@ -33,6 +33,8 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
                             "timestamp",
                             "vertical_rate",
                             "groundspeed",
+                            "latitude",
+                            "longitude",
                         ]
                     ].dropna()
                     if random:
@@ -55,6 +57,8 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
                             "timestamp",
                             "vertical_rate",
                             "groundspeed",
+                            "latitude",
+                            "longitude",
                         ]
                     ].dropna()
                     del(old_flights)
@@ -91,7 +95,7 @@ def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, rando
         #shuffle the dataframe
         df_train = df_train.sample(frac=1)
         y = seconds_till_arrival(df_train)
-        features = df_train.drop(columns=["arrival_time", "timestamp"])
+        features = df_train.drop(columns=["arrival_time", "timestamp", "latitude", "longitude"])
 
         while not queue.empty():
             time.sleep(2)
