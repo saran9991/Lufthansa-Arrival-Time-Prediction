@@ -42,16 +42,16 @@ if __name__ == "__main__":
     queue = Queue()
     batch_size = 32
     scaler_file = ".." + os.sep + "trained_models" + os.sep + "std_scaler_reg.bin"
-    model_file = '../trained_models/model_very_thin_dropout'
+    model_file = '../trained_models/model_very_thin_dropout_huge'
     scaler = load_scaler(scaler_file)
     model = load_model(model_file)
     print(model.summary())
-    load_data(queue,epochs=1,flight_files=data_files_test,threads=6,sample_fraction=0.005 )
+    load_data(queue,epochs=1,flight_files=data_files_test,threads=6,sample_fraction=0.005, random=True)
     X_test, y_test = queue.get()
     cols_numeric = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
     X_test_numeric = X_test[cols_numeric]
     X_test[cols_numeric] = scaler.transform(X_test_numeric)
-    load_data(queue, epochs=1, flight_files=data_files, threads=6, sample_fraction=0.001)
+    load_data(queue, epochs=1, flight_files=data_files, threads=6, sample_fraction=0.001, random=False)
     #data_process = Process(target=load_data, args=(queue, 40, data_files, 4))
     #data_process.start()
     while True:

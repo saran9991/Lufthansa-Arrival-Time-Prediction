@@ -10,7 +10,8 @@ import os
 from tqdm.auto import tqdm
 
 
-def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
+def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
+    # if random false, every 1/sample_fraction row
     first_day = True
     nthrows = int(1 // sample_fraction)
     for file in file_batch:
@@ -34,9 +35,10 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
                             "groundspeed",
                         ]
                     ].dropna()
-
-                    #df_flights = df_flights.sample(frac=sample_fraction)
-                    df_flights = df_flights.iloc[::nthrows, :]
+                    if random:
+                        df_flights = df_flights.sample(frac=sample_fraction)
+                    else:
+                        df_flights = df_flights.iloc[::nthrows, :]
                     first_day = False
                 else:
                     old_flights = pd.concat([old_flights,new_flights])
@@ -66,7 +68,7 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
     data_queue.put(df_flights)
 
 
-def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1):
+def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, random = True):
     if len(flight_files) < threads:
         print("warning fewer files than threads specified, reducing threads to number of months")
         threads = len(flight_files)
@@ -77,7 +79,7 @@ def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1):
         data_queue = Queue()
         processes = []
         for batch in file_batches:
-            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction))
+            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random))
             process.start()
             processes.append(process)
         df_train = data_queue.get()
