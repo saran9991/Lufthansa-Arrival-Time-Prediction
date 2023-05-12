@@ -1,7 +1,6 @@
 # Logfile - Lufthansa
 
-*Last updated: 05th Mai, 2023*\
-*Points 1 to 6 added on 13th April, 2023*
+*Last updated: 12th Mai, 2023*
 
 ###### This logfile contains updates to the Lufthansa Project.
 
@@ -65,7 +64,10 @@ Current best model is model_model_very_thin_dropout
 
 ## 19. Updated environment file
 
+## 20. Created another branch for updating preprocessing.py
 
+## 21. Method ``noise_remove`` added
+Method removes weird most of the weird altitude and onground changes (yet to be tested on year worth of data)
 
 ---
 
