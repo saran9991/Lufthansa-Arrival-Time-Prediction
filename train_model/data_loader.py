@@ -5,49 +5,70 @@ import numpy as np
 import pandas as pd
 from multiprocessing import Process, Queue
 import time
+import datetime
 import os
+from tqdm.auto import tqdm
 
 
-def load_data_batch(file_batch, data_queue, sample_fraction=0.1):
-    first = True
+def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
+    # if random false, every 1/sample_fraction row
+    first_day = True
+    nthrows = int(1 // sample_fraction)
     for file in file_batch:
         with h5py.File(file, 'r') as f:
+            for key in tqdm(list(f.keys()),desc=file):
 
-            for key in list(f.keys()):
-                try:
-                    flights = Traffic.from_file(file, key=key,
-                                            parse_dates=["day", "firstseen", "hour", "last_position",
-                                                         "lastseen", "timestamp"])
-                except:
-                    continue
+                new_flights = Traffic.from_file(file, key=key,
+                                                parse_dates=["day", "firstseen", "hour", "last_position",
+                                                             "lastseen", "timestamp"]).data
 
-                try:
-                    df_flights = preprocess_traffic(flights)
-                except AttributeError:
-                    continue
-
-                df = df_flights[
-                    [
-                        "distance",
-                        "altitude",
-                        "geoaltitude",
-                        "arrival_time",
-                        "timestamp",
-                        "vertical_rate",
-                        "groundspeed",
-                    ]
-                ].dropna()
-                df_sample = df.sample(frac=sample_fraction)
-                if not first:
-                    df_train = pd.concat([df_sample, df_train])
+                if first_day:
+                    df_flights = preprocess_traffic(new_flights)
+                    df_flights = df_flights[
+                        [
+                            "distance",
+                            "altitude",
+                            "geoaltitude",
+                            "arrival_time",
+                            "timestamp",
+                            "vertical_rate",
+                            "groundspeed",
+                        ]
+                    ].dropna()
+                    if random:
+                        df_flights = df_flights.sample(frac=sample_fraction)
+                    else:
+                        df_flights = df_flights.iloc[::nthrows, :]
+                    first_day = False
                 else:
-                    df_train = df_sample
-                    first = False
+                    old_flights = pd.concat([old_flights,new_flights])
+                    start = new_flights.day.min().replace(tzinfo=None)
+                    end = start + datetime.timedelta(days=1)
+                    relevant_time = [str(start), str(end)]
+                    df_add_flights = preprocess_traffic(old_flights, relevant_time)
+                    df_add_flights = df_add_flights[
+                        [
+                            "distance",
+                            "altitude",
+                            "geoaltitude",
+                            "arrival_time",
+                            "timestamp",
+                            "vertical_rate",
+                            "groundspeed",
+                        ]
+                    ].dropna()
+                    del(old_flights)
+                    #df_add_flights = df_add_flights.sample(frac=sample_fraction)
+                    df_add_flights = df_add_flights.iloc[::nthrows, :]
+                    df_flights = pd.concat([df_flights, df_add_flights])
+                    del(df_add_flights)
+                old_flights = new_flights
 
-    data_queue.put(df_train)
+
+    data_queue.put(df_flights)
 
 
-def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1):
+def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, random = True):
     if len(flight_files) < threads:
         print("warning fewer files than threads specified, reducing threads to number of months")
         threads = len(flight_files)
@@ -58,7 +79,7 @@ def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1):
         data_queue = Queue()
         processes = []
         for batch in file_batches:
-            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction))
+            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random))
             process.start()
             processes.append(process)
         df_train = data_queue.get()

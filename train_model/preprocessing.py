@@ -12,25 +12,26 @@ DISTANCE_AIRPORT = 4.87,  # largest distance that's possible within Frankfurt ai
 GROUNDSPEED_LANDING = 170
 
 
-def get_complete_flights(flights, timeframe):
+FRANKFURT_LAT = 50.037621
+FRANKFURT_LON = 8.565197
+DISTANCE_AIRPORT = 4.87,  # largest distance that's possible within Frankfurt airport to lat and lon
+GROUNDSPEED_LANDING = 170
+def get_complete_flights(df, timeframe):
     """
-    takes in trajectories and the timeframe in which flights must have data and returns ids of those flights which have
-    start to finish in data.
+    takes in trajectories dataframe and the timeframe in which flights must have data and returns ids of those flights
+    which have start to finish in data.
     """
     # assign unique id which properly identifies a flight. A flight is uniquely identified by callsing and firstseen-
     # timestamp.
-    flights_data = flights.data
-    flights_data['flight_id'] = flights_data.groupby(['callsign', 'firstseen']).ngroup()
-    flights_data['flight_id'] = flights_data["callsign"] + "_" + flights_data['flight_id'].astype(str)
+    df['flight_id'] = df.groupby(['callsign', 'firstseen']).ngroup()
+    df['flight_id'] = df["callsign"] + "_" + df['flight_id'].astype(str)
 
-    # create Traffic object
-    traffic = Traffic(flights_data)
 
     # filter for onground True and ground_speed below 150
-    df_flights = traffic.data[["flight_id", "groundspeed", "onground"]]
+    df_flights = df[["flight_id", "groundspeed", "onground"]]
     og_flight_ids = \
         set(df_flights.loc[
-                (flights.data.onground == True) & (flights.data.groundspeed < GROUNDSPEED_LANDING)].flight_id)
+                (df.onground == True) & (df.groundspeed < GROUNDSPEED_LANDING)].flight_id)
     df_flights = df_flights.loc[df_flights.flight_id.isin(og_flight_ids)]
 
     # onground has to stay True. We want to replace instances of onground = True, which don't stay true.
@@ -44,9 +45,10 @@ def get_complete_flights(flights, timeframe):
 
     # find flights that are on the first day in dataframe. Find first day and set to beginning of day. Then add 5
     # minutes
-    edge_time = traffic.start_time.normalize() + pd.Timedelta(minutes=5)
+    edge_time = df.day.min() + pd.Timedelta(minutes=5)
     # get flight_ids of flights with times before
-    early_ids = traffic.before(edge_time).flight_ids
+    df.loc[df.timestamp<edge_time].flight_id.unique()
+    early_ids = df.loc[df.timestamp<edge_time].flight_id.unique()
     # find minimum groundspeed
     if len(early_ids) > 0:
         early_speed = df_flights.loc[df_flights.flight_id.isin(early_ids)].groupby("flight_id", as_index=False).min()
@@ -57,9 +59,9 @@ def get_complete_flights(flights, timeframe):
     if timeframe:
         datetime_start = pd.to_datetime(datetime.strptime(timeframe[0], '%Y-%m-%d %H:%M:%S'), utc=True)
         datetime_end = pd.to_datetime(datetime.strptime(timeframe[1], '%Y-%m-%d %H:%M:%S'), utc=True)
-        ids = traffic[ids].between(datetime_start, datetime_end).flight_ids
+        ids = df.loc[(df.timestamp.between(datetime_start, datetime_end)) &(df.flight_id.isin(ids))].flight_id.unique()
 
-    return traffic[ids]
+    return df.loc[df.flight_id.isin(ids)]
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -79,7 +81,7 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 def assign_landing_time(
-        flights,
+        df,
         timeframe=None,
         destination_lat=FRANKFURT_LAT,
         destination_lon=FRANKFURT_LON,
@@ -89,31 +91,33 @@ def assign_landing_time(
     """
     assigns distance to airport and landing time
     """
-    traffic = get_complete_flights(flights=flights, timeframe=timeframe)
+    df = get_complete_flights(df, timeframe=timeframe)
 
     # find first onground True value of those which have speed below threshold and are sufficiently near to
     # destination coords
-    df_flights = traffic.data
-    df_flights["distance"] = haversine(
-        df_flights["latitude"],
-        df_flights["longitude"],
+    df["distance"] = haversine(
+        df["latitude"],
+        df["longitude"],
         destination_lat, destination_lon
     )
 
-    df_onground = df_flights.loc[
-        (df_flights.distance < check_distance) &
-        (df_flights.groundspeed < check_speed) &
-        (df_flights.onground == True)
+    df_onground = df.loc[
+        (df.distance < check_distance) &
+        (df.groundspeed < check_speed) &
+        (df.onground == True)
         ][["flight_id", "timestamp"]]
 
     arrival_times = (df_onground.groupby("flight_id").min())
     arrival_dict = arrival_times.to_dict()["timestamp"]
-    df_flights["arrival_time"] = df_flights["flight_id"].map(arrival_dict)
+    df["arrival_time"] = df["flight_id"].map(arrival_dict)
 
-    # drop all rows in which arrival time is None
-    df_flights = df_flights.dropna(subset="arrival_time")
+    # drop all rows in which arrival time is None. Reassign correct datatype. In Large datasets timestamps can
+    # get messed up
+    df = df.dropna(subset="arrival_time").astype(
+        {"timestamp": "datetime64[ns, UTC]","arrival_time": "datetime64[ns, UTC]"}
+    )
 
-    return df_flights
+    return df
 
 
 def add_month_weekday(df):
@@ -132,7 +136,7 @@ def generate_holidays(timestamp, years):
     return holiday
 
 
-def preprocess_traffic(flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"]):
+def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"]):
     """
     takes in Traffic object, selects only full flights, combines flights together which belong together and assigns
     unique identifier, which uses callsign and firstseen-timestamp to uniquely identify flights. Calculates distance
@@ -144,14 +148,14 @@ def preprocess_traffic(flights, relevant_time=["1970-01-01 00:00:00", "2030-01-0
     Interval must be a list of strings in the form "yyyy-mm-dd hh:mm:ss", "yyyy-mm-dd hh:mm:ss""
     """
 
-    df = assign_landing_time(flights, relevant_time)
+    df_flights = assign_landing_time(df_flights, relevant_time)
     # remove onground True values after (including) plane has landed.
-    df = df.loc[df.timestamp < df.arrival_time]
+    df_flights = df_flights.loc[df_flights.timestamp < df_flights.arrival_time]
 
     # onground is no longer needed.
-    df = df.drop("onground", axis=1)
+    df_flights = df_flights.drop("onground", axis=1)
 
-    return df
+    return df_flights
 
 
 def generate_dummy_columns(df: pd.DataFrame, with_month = True):
