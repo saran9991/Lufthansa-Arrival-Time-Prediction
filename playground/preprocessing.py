@@ -226,20 +226,26 @@ def noise_remove(data):
     data['altitude_difference'] = data['altitude'] - data_shifted['altitude']
     data['geoaltitude_difference'] = data['geoaltitude'] - data_shifted['geoaltitude']
 
-    #Conditions
+    data['onground_prev'] = data['onground'].shift(1)
+    data['onground_next'] = data['onground'].shift(-1)
+    data['time_difference_prev'] = data['time_difference'].shift(1)
+    data['time_difference_next'] = (data['timestamp'].shift(-1) - data['timestamp']).dt.total_seconds()
+
+    #Conditions based on sampling of data every 5 seconds. Change time difference condition for higher sampling rate
     cond1 = (data['altitude'] > 45000) | (data['geoaltitude'] > 45000)
-    cond2 = (data['altitude_difference'].abs() > 2000) & (data['time_difference'] <= 10)
-    cond3 = (data['geoaltitude_difference'].abs() > 2000) & (data['time_difference'] <= 10)
+    cond2 = (data['altitude_difference'].abs() > 2000) & (data['time_difference'] <= 12)
+    cond3 = (data['geoaltitude_difference'].abs() > 2000) & (data['time_difference'] <= 12)
     cond4 = (data['altitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
     cond5 = (data['geoaltitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
     cond6 = (data['onground'] == True) & (data['groundspeed'] > 200) & (data['altitude'] > 10000)
+    cond7 = (data['onground_prev'] != data['onground']) & (data['onground_next'] != data['onground']) & (
+                data['time_difference_prev'] <= 15) & (data['time_difference_next'] <= 15)
+
     #cond6 = (data['altitude'].isna()) & (data['onground'] == True)
 
-
-
-    drop_conditions = cond1 | cond2 | cond3 | cond4 | cond5 | cond6
+    drop_conditions = cond1 | cond2 | cond3 | cond4 | cond5 | cond6 | cond7
     data = data[~drop_conditions]
-    data.drop(columns=['time_difference'], inplace=True)  # 'altitude_difference', 'geoaltitude_difference' could be useful later
+    data.drop(columns=['time_difference', 'onground_prev', 'onground_next', 'time_difference_prev', 'time_difference_next'], inplace=True)  # 'altitude_difference', 'geoaltitude_difference' could be useful later
 
     return data
 
