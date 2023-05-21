@@ -232,8 +232,9 @@ def noise_remove(data):
     cond3 = (data['geoaltitude_difference'].abs() > 2000) & (data['time_difference'] <= 10)
     cond4 = (data['altitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
     cond5 = (data['geoaltitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
-    #cond6 = (data['altitude'].isna()) & (data['onground'] == True)
     cond6 = (data['onground'] == True) & (data['groundspeed'] > 200) & (data['altitude'] > 10000)
+    #cond6 = (data['altitude'].isna()) & (data['onground'] == True)
+
 
 
     drop_conditions = cond1 | cond2 | cond3 | cond4 | cond5 | cond6
