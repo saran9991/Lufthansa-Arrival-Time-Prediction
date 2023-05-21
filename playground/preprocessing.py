@@ -214,19 +214,27 @@ def seconds_till_arrival(flights_data: pd.DataFrame):
     return seconds
 
 def noise_remove(data):
-    data_shifted = data.shift(2)
+    data_shifted = data.shift(1)
+
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    data_shifted['timestamp'] = pd.to_datetime(data_shifted['timestamp'])
+
+    data['timestamp'] = data['timestamp'].fillna(pd.NaT)
+    data_shifted['timestamp'] = data_shifted['timestamp'].fillna(pd.NaT)
 
     data['time_difference'] = (data['timestamp'] - data_shifted['timestamp']).dt.total_seconds()
     data['altitude_difference'] = data['altitude'] - data_shifted['altitude']
     data['geoaltitude_difference'] = data['geoaltitude'] - data_shifted['geoaltitude']
 
     #Conditions
-    cond1 = (data['onground'] == True) & (data['groundspeed'] > 200) & (data['altitude'] > 10000)
+    cond1 = (data['altitude'] > 45000) | (data['geoaltitude'] > 45000)
     cond2 = (data['altitude_difference'].abs() > 2000) & (data['time_difference'] <= 10)
     cond3 = (data['geoaltitude_difference'].abs() > 2000) & (data['time_difference'] <= 10)
     cond4 = (data['altitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
     cond5 = (data['geoaltitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
-    cond6 = (data['altitude'].isna()) & (data['onground'] == True) #Noticed that onground = True arbitrarily whenever geoalt or alt = NaN
+    #cond6 = (data['altitude'].isna()) & (data['onground'] == True)
+    cond6 = (data['onground'] == True) & (data['groundspeed'] > 200) & (data['altitude'] > 10000)
+
 
     drop_conditions = cond1 | cond2 | cond3 | cond4 | cond5 | cond6
     data = data[~drop_conditions]
