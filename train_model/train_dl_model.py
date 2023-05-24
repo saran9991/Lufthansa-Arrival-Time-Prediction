@@ -42,7 +42,7 @@ if __name__ == "__main__":
     queue = Queue()
     batch_size = 32
     scaler_file = ".." + os.sep + "trained_models" + os.sep + "std_scaler_reg.bin"
-    model_file = '../trained_models/model_very_thin_dropout_huge'
+    model_file = '../trained_models/model_bering'
     scaler = load_scaler(scaler_file)
     model = load_model(model_file)
     print(model.summary())

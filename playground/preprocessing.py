@@ -194,6 +194,28 @@ def generate_cyclical_day(timestamp):
     day_cos = np.cos(2 * np.pi * days_scaled)
     return day_sin, day_cos
 
+def calculate_bearing(lat1, lon1, lat2, lon2):
+    # Convert latitude and longitude to radians
+    lat1_rad = np.radians(lat1)
+    lon1_rad = np.radians(lon1)
+    lat2_rad = np.radians(lat2)
+    lon2_rad = np.radians(lon2)
+
+    # Calculate the longitude difference
+    delta_lon = lon2_rad - lon1_rad
+
+    # Calculate the bearing
+    y = np.sin(delta_lon) * np.cos(lat2_rad)
+    x = np.cos(lat1_rad) * np.sin(lat2_rad) - np.sin(lat1_rad) * np.cos(lat2_rad) * np.cos(delta_lon)
+    bearing_rad = np.arctan2(y, x)
+
+    # Convert the bearing to degrees
+    bearing_deg = np.degrees(bearing_rad)
+
+    # Normalize the bearing to the range of 0 to 360 degrees
+    bearing_deg = (bearing_deg + 360) % 360
+    return bearing_deg
+  
 def generate_aux_columns(df, with_month = False):
     df["weekday"] = df["timestamp"].dt.isocalendar().day - 1  # Monday: 0, Sunday: 6
     if with_month:
@@ -203,9 +225,14 @@ def generate_aux_columns(df, with_month = False):
     df["holiday"] = generate_holidays(df.timestamp, years)
     df["sec_sin"], df["sec_cos"] = generate_cyclical_second(df.timestamp)
     df["day_sin"], df["day_cos"] = generate_cyclical_day(df.timestamp)
+    bearing = calculate_bearing(FRANKFURT_LAT,FRANKFURT_LON, df.latitude, df.longitude)
+    df["bearing_sin"] = np.sin(bearing * 2 * np.pi / 360)
+    df["bearing_cos"] =  np.cos(bearing * 2 * np.pi / 360)
     df = generate_dummy_columns(df,with_month=with_month)
+
     df = df.drop(columns=["weekday", "month"]) if with_month else df.drop(columns=["weekday"])
-    df.reset_index(drop=True, inplace=True) #Added this to reset the dataset index (important)
+    df.reset_index(drop=True, inplace=True)
+
     return df
 
 def seconds_till_arrival(flights_data: pd.DataFrame):
