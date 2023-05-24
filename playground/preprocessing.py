@@ -205,9 +205,47 @@ def generate_aux_columns(df, with_month = False):
     df["day_sin"], df["day_cos"] = generate_cyclical_day(df.timestamp)
     df = generate_dummy_columns(df,with_month=with_month)
     df = df.drop(columns=["weekday", "month"]) if with_month else df.drop(columns=["weekday"])
+    df.reset_index(drop=True, inplace=True) #Added this to reset the dataset index (important)
     return df
 
 def seconds_till_arrival(flights_data: pd.DataFrame):
     time_till_arrival = flights_data["arrival_time"] - flights_data["timestamp"]
     seconds = time_till_arrival.dt.total_seconds()
     return seconds
+
+def noise_remove(data):
+    data_shifted = data.shift(1)
+
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    data_shifted['timestamp'] = pd.to_datetime(data_shifted['timestamp'])
+
+    data['timestamp'] = data['timestamp'].fillna(pd.NaT)
+    data_shifted['timestamp'] = data_shifted['timestamp'].fillna(pd.NaT)
+
+    data['time_difference'] = (data['timestamp'] - data_shifted['timestamp']).dt.total_seconds()
+    data['altitude_difference'] = data['altitude'] - data_shifted['altitude']
+    data['geoaltitude_difference'] = data['geoaltitude'] - data_shifted['geoaltitude']
+
+    data['onground_prev'] = data['onground'].shift(1)
+    data['onground_next'] = data['onground'].shift(-1)
+    data['time_difference_prev'] = data['time_difference'].shift(1)
+    data['time_difference_next'] = (data['timestamp'].shift(-1) - data['timestamp']).dt.total_seconds()
+
+    #Conditions based on sampling of data every 5 seconds. Change time difference condition for higher sampling rate
+    cond1 = (data['altitude'] > 45000) | (data['geoaltitude'] > 45000)
+    cond2 = (data['altitude_difference'].abs() > 2000) & (data['time_difference'] <= 12)
+    cond3 = (data['geoaltitude_difference'].abs() > 2000) & (data['time_difference'] <= 12)
+    cond4 = (data['altitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
+    cond5 = (data['geoaltitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
+    cond6 = (data['onground'] == True) & (data['groundspeed'] > 200) & (data['altitude'] > 10000)
+    cond7 = (data['onground_prev'] != data['onground']) & (data['onground_next'] != data['onground']) & (
+                data['time_difference_prev'] <= 15) & (data['time_difference_next'] <= 15)
+
+    #cond6 = (data['altitude'].isna()) & (data['onground'] == True)
+
+    drop_conditions = cond1 | cond2 | cond3 | cond4 | cond5 | cond6 | cond7
+    data = data[~drop_conditions]
+    data.drop(columns=['time_difference', 'onground_prev', 'onground_next', 'time_difference_prev', 'time_difference_next'], inplace=True)  # 'altitude_difference', 'geoaltitude_difference' could be useful later
+
+    return data
+
