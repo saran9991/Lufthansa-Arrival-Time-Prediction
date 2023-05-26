@@ -69,5 +69,9 @@ Current best model is model_model_very_thin_dropout
 ## 21. Method ``noise_remove`` added
 Method removes weird most of the weird altitude and onground changes (yet to be tested on year worth of data)
 
+## 22. Sin and Cosin of track added to aux-columns
+Track of the airplane signifies the direction it is heading towards. Sin and cosine fully represent the angle
+
+---
 ---
 
