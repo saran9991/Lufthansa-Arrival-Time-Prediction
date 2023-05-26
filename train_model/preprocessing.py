@@ -55,7 +55,8 @@ def noise_remove(data):
 
     return data
 
-def get_complete_flights(df, timeframe, remove_noise = True):
+
+def get_complete_flights(df, timeframe, remove_noise=False):
     """
     takes in trajectories dataframe and the timeframe in which flights must have data and returns ids of those flights
     which have start to finish in data.
@@ -63,10 +64,11 @@ def get_complete_flights(df, timeframe, remove_noise = True):
     # assign unique id which properly identifies a flight. A flight is uniquely identified by callsing and firstseen-
     # timestamp.
 
-    if remove_noise:
-        df = noise_remove(df)
     df['flight_id'] = df.groupby(['callsign', 'firstseen']).ngroup()
     df['flight_id'] = df["callsign"] + "_" + df['flight_id'].astype(str)
+
+    if remove_noise:
+        pass  # Saran please implement!
 
     # filter for onground True and ground_speed below 150
     df_flights = df[["flight_id", "groundspeed", "onground"]]
@@ -128,12 +130,12 @@ def assign_landing_time(
         destination_lon=FRANKFURT_LON,
         check_distance=DISTANCE_AIRPORT,  # largest distance that's possible within Frankfurt airport to lat and lon
         check_speed=GROUNDSPEED_LANDING,
-        remove_noise = True
+        remove_noise=False
 ):
     """
     assigns distance to airport and landing time
     """
-    df = get_complete_flights(df, timeframe=timeframe, remove_noise = remove_noise)
+    df = get_complete_flights(df, timeframe=timeframe, remove_noise=remove_noise)
 
     # find first onground True value of those which have speed below threshold and are sufficiently near to
     # destination coords
@@ -178,7 +180,7 @@ def generate_holidays(timestamp, years):
     return holiday
 
 
-def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"], remove_noise = True):
+def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"], remove_noise=False):
     """
     takes in Traffic object, selects only full flights, combines flights together which belong together and assigns
     unique identifier, which uses callsign and firstseen-timestamp to uniquely identify flights. Calculates distance
@@ -282,6 +284,7 @@ def generate_aux_columns(df, with_month=False):
     df.reset_index(drop=True, inplace=True)
 
     return df
+
 
 def seconds_till_arrival(flights_data: pd.DataFrame):
     time_till_arrival = flights_data["arrival_time"] - flights_data["timestamp"]
