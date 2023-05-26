@@ -1,6 +1,6 @@
 from tensorflow import keras, config as tf_config
 from tensorflow.keras.models import load_model
-from multiprocessing import Process, Queue
+from multiprocessing import Queue
 from joblib import dump, load as load_scaler
 from data_loader import load_data
 import pandas as pd

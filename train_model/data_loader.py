@@ -10,20 +10,30 @@ import os
 from tqdm.auto import tqdm
 
 
-def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
+def load_data_batch(
+        file_batch,
+        data_queue,
+        sample_fraction=0.1,
+        random = True,
+        remove_noise = True,
+        quick_sample = False # for testing purposes when we only want to load one day
+):
     # if random false, every 1/sample_fraction row
     first_day = True
     nthrows = int(1 // sample_fraction)
     for file in file_batch:
         with h5py.File(file, 'r') as f:
+            if quick_sample:
+                i = 0
             for key in tqdm(list(f.keys()),desc=file):
-
+                if i > 0:
+                    continue
                 new_flights = Traffic.from_file(file, key=key,
                                                 parse_dates=["day", "firstseen", "hour", "last_position",
                                                              "lastseen", "timestamp"]).data
 
                 if first_day:
-                    df_flights = preprocess_traffic(new_flights)
+                    df_flights = preprocess_traffic(new_flights, remove_noise=remove_noise)
                     df_flights = df_flights[
                         [
                             "distance",
@@ -33,6 +43,7 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
                             "timestamp",
                             "vertical_rate",
                             "groundspeed",
+                            "track",
                             "latitude",
                             "longitude",
                         ]
@@ -47,7 +58,7 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
                     start = new_flights.day.min().replace(tzinfo=None)
                     end = start + datetime.timedelta(days=1)
                     relevant_time = [str(start), str(end)]
-                    df_add_flights = preprocess_traffic(old_flights, relevant_time)
+                    df_add_flights = preprocess_traffic(old_flights, relevant_time, remove_noise=remove_noise)
                     df_add_flights = df_add_flights[
                         [
                             "distance",
@@ -57,6 +68,7 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
                             "timestamp",
                             "vertical_rate",
                             "groundspeed",
+                            "track",
                             "latitude",
                             "longitude",
                         ]
@@ -67,12 +79,14 @@ def load_data_batch(file_batch, data_queue, sample_fraction=0.1, random = True):
                     df_flights = pd.concat([df_flights, df_add_flights])
                     del(df_add_flights)
                 old_flights = new_flights
+                if quick_sample:
+                    i = 1
 
 
     data_queue.put(df_flights)
 
 
-def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, random = True):
+def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, random = True, remove_noise = True):
     if len(flight_files) < threads:
         print("warning fewer files than threads specified, reducing threads to number of months")
         threads = len(flight_files)
@@ -83,7 +97,7 @@ def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, rando
         data_queue = Queue()
         processes = []
         for batch in file_batches:
-            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random))
+            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random, remove_noise))
             process.start()
             processes.append(process)
         df_train = data_queue.get()
@@ -95,7 +109,7 @@ def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, rando
         #shuffle the dataframe
         df_train = df_train.sample(frac=1)
         y = seconds_till_arrival(df_train)
-        features = df_train.drop(columns=["arrival_time", "timestamp", "latitude", "longitude"])
+        features = df_train.drop(columns=["arrival_time", "timestamp", "track", "latitude", "longitude"])
 
         while not queue.empty():
             time.sleep(2)
