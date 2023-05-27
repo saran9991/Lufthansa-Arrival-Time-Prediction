@@ -45,7 +45,7 @@ def get_complete_flights(df, timeframe):
 
     # find flights that are on the first day in dataframe. Find first day and set to beginning of day. Then add 5
     # minutes
-    edge_time = df.day.min() + pd.Timedelta(minutes=5)
+    edge_time = pd.to_datetime(df['day']).min() + pd.Timedelta(minutes=5)
     # get flight_ids of flights with times before
     df.loc[df.timestamp<edge_time].flight_id.unique()
     early_ids = df.loc[df.timestamp<edge_time].flight_id.unique()
