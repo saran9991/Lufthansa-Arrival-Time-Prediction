@@ -26,8 +26,9 @@ def load_data_batch(
             if quick_sample:
                 i = 0
             for key in tqdm(list(f.keys()),desc=file):
-                if i > 0:
-                    continue
+                if quick_sample:
+                    if i > 0:
+                        continue
                 new_flights = Traffic.from_file(file, key=key,
                                                 parse_dates=["day", "firstseen", "hour", "last_position",
                                                              "lastseen", "timestamp"]).data
@@ -86,7 +87,7 @@ def load_data_batch(
     data_queue.put(df_flights)
 
 
-def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, random = True, remove_noise = True):
+def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, random = True, remove_noise = True, quick_sample = False):
     if len(flight_files) < threads:
         print("warning fewer files than threads specified, reducing threads to number of months")
         threads = len(flight_files)
@@ -97,7 +98,7 @@ def load_data(queue, epochs, flight_files, threads=4, sample_fraction=0.1, rando
         data_queue = Queue()
         processes = []
         for batch in file_batches:
-            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random, remove_noise))
+            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random, remove_noise, quick_sample))
             process.start()
             processes.append(process)
         df_train = data_queue.get()
