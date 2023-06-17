@@ -277,6 +277,8 @@ def generate_aux_columns(df, with_month=False):
     track_radians = np.radians(df["track"])
     df["track_sin"] = np.sin(track_radians)
     df["track_cos"] = np.cos(track_radians)
+    df["latitude_rad"] = np.radians(df.latitude)
+    df["longitude_rad"] = np.radians(df.longitude)
 
     df = generate_dummy_columns(df, with_month=with_month)
 

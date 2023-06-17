@@ -1,9 +1,12 @@
-import tensorflow as tf
+import copy
+from datetime import datetime
 from tensorflow import keras
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import load_model
 from keras import backend as K
-from datetime import datetime
+import numpy as np
+
+
 
 now = datetime.now()
 dt_string = now.strftime("%y%m%d_%H_%M_%S")
@@ -14,7 +17,10 @@ class SequentialModel:
             self,
             build_new = True,
             model_path = "../trained_models/sequential_model_" + dt_string,
-            params: dict = {}
+            params: dict = {},
+            scaler = None,
+            cols_to_scale = None,
+            postprocess_output_function = None
     ):
         if build_new:
             self.model = build_sequential(
@@ -30,6 +36,9 @@ class SequentialModel:
         else:
             self.model = load_model(model_path)
         self.model_path = model_path
+        self.scaler = scaler
+        self.cols_to_scale = cols_to_scale
+        self.postprocess_output_function = postprocess_output_function
 
 
     def change_learning_rate(self, lr):
@@ -45,6 +54,39 @@ class SequentialModel:
             path = self.model_path
         self.model = load_model(path)
 
+    def predict(self, X, postprocess_output=False):
+        if self.scaler is not None:
+            X_predict = copy.deepcopy(X)
+            X_predict.iloc[:, self.cols_to_scale] = self.scaler.transform(X.iloc[:, self.cols_to_scale])
+        else:
+            X_predict = X
+        prediction = self.model.predict(X_predict)
+        if postprocess_output:
+            prediction = np.array(prediction)
+
+            return self.postprocess_output_function(X, prediction)
+
+        return prediction
+
+    def evaluate(self, X, y,postprocess_output=False):
+        if self.scaler is not None:
+            X_eval = copy.deepcopy(X)
+            X_eval.iloc[:, self.cols_to_scale] = self.scaler.transform(X.iloc[:, self.cols_to_scale])
+        else:
+            X_eval = X
+
+        if postprocess_output:
+            y_pred = self.predict(X, postprocess_output=True)
+            y_pred = y_pred.reshape(-1)
+            mae = (np.abs(y_pred-y)).mean()
+            print("mae:", mae)
+            return mae
+
+        else:
+            return self.model.evaluate(X_eval, y)
+
+
+
 def build_sequential(lr, input_dims, output_dims, layer_sizes, dropout_rate, activation, loss):
     model = keras.Sequential()
     model.add(keras.layers.Input(shape=input_dims))
@@ -58,3 +100,4 @@ def build_sequential(lr, input_dims, output_dims, layer_sizes, dropout_rate, act
     model.compile(optimizer=Adam(learning_rate=lr), loss=loss)
 
     return model
+
