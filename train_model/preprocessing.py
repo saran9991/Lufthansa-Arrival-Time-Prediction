@@ -11,21 +11,64 @@ FRANKFURT_LON = 8.565197
 DISTANCE_AIRPORT = 4.87,  # largest distance that's possible within Frankfurt airport to lat and lon
 GROUNDSPEED_LANDING = 170
 
-
 FRANKFURT_LAT = 50.037621
 FRANKFURT_LON = 8.565197
 DISTANCE_AIRPORT = 4.87,  # largest distance that's possible within Frankfurt airport to lat and lon
 GROUNDSPEED_LANDING = 170
-def get_complete_flights(df, timeframe):
+
+
+def noise_remove(data):
+    data_shifted = data.shift(1)
+
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    data_shifted['timestamp'] = pd.to_datetime(data_shifted['timestamp'])
+
+    data['timestamp'] = data['timestamp'].fillna(pd.NaT)
+    data_shifted['timestamp'] = data_shifted['timestamp'].fillna(pd.NaT)
+
+    data['time_difference'] = (data['timestamp'] - data_shifted['timestamp']).dt.total_seconds()
+    data['altitude_difference'] = data['altitude'] - data_shifted['altitude']
+    data['geoaltitude_difference'] = data['geoaltitude'] - data_shifted['geoaltitude']
+
+    data['onground_prev'] = data['onground'].shift(1)
+    data['onground_next'] = data['onground'].shift(-1)
+    data['time_difference_prev'] = data['time_difference'].shift(1)
+    data['time_difference_next'] = (data['timestamp'].shift(-1) - data['timestamp']).dt.total_seconds()
+
+    # Conditions based on sampling of data every 5 seconds. Change time difference condition for higher sampling rate
+    cond1 = (data['altitude'] > 45000) | (data['geoaltitude'] > 45000)
+    cond2 = (data['altitude_difference'].abs() > 2000) & (data['time_difference'] <= 12)
+    cond3 = (data['geoaltitude_difference'].abs() > 2000) & (data['time_difference'] <= 12)
+    cond4 = (data['altitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
+    cond5 = (data['geoaltitude_difference'].abs() > 5000) & (data['time_difference'] <= 30)
+    cond6 = (data['onground'] == True) & (data['groundspeed'] > 200) & (data['altitude'] > 10000)
+    cond7 = (data['onground_prev'] != data['onground']) & (data['onground_next'] != data['onground']) & (
+            data['time_difference_prev'] <= 15) & (data['time_difference_next'] <= 15)
+
+    # cond6 = (data['altitude'].isna()) & (data['onground'] == True)
+
+    drop_conditions = cond1 | cond2 | cond3 | cond4 | cond5 | cond6 | cond7
+    data = data[~drop_conditions]
+    data.drop(
+        columns=['time_difference', 'onground_prev', 'onground_next', 'time_difference_prev', 'time_difference_next'],
+        inplace=True)  # 'altitude_difference', 'geoaltitude_difference' could be useful later
+
+    return data
+
+
+def get_complete_flights(df, timeframe, remove_noise=False):
     """
     takes in trajectories dataframe and the timeframe in which flights must have data and returns ids of those flights
     which have start to finish in data.
     """
     # assign unique id which properly identifies a flight. A flight is uniquely identified by callsing and firstseen-
     # timestamp.
+
     df['flight_id'] = df.groupby(['callsign', 'firstseen']).ngroup()
     df['flight_id'] = df["callsign"] + "_" + df['flight_id'].astype(str)
 
+    if remove_noise:
+        pass  # Saran please implement!
 
     # filter for onground True and ground_speed below 150
     df_flights = df[["flight_id", "groundspeed", "onground"]]
@@ -47,8 +90,8 @@ def get_complete_flights(df, timeframe):
     # minutes
     edge_time = df.day.min() + pd.Timedelta(minutes=5)
     # get flight_ids of flights with times before
-    df.loc[df.timestamp<edge_time].flight_id.unique()
-    early_ids = df.loc[df.timestamp<edge_time].flight_id.unique()
+    df.loc[df.timestamp < edge_time].flight_id.unique()
+    early_ids = df.loc[df.timestamp < edge_time].flight_id.unique()
     # find minimum groundspeed
     if len(early_ids) > 0:
         early_speed = df_flights.loc[df_flights.flight_id.isin(early_ids)].groupby("flight_id", as_index=False).min()
@@ -59,7 +102,7 @@ def get_complete_flights(df, timeframe):
     if timeframe:
         datetime_start = pd.to_datetime(datetime.strptime(timeframe[0], '%Y-%m-%d %H:%M:%S'), utc=True)
         datetime_end = pd.to_datetime(datetime.strptime(timeframe[1], '%Y-%m-%d %H:%M:%S'), utc=True)
-        ids = df.loc[(df.timestamp.between(datetime_start, datetime_end)) &(df.flight_id.isin(ids))].flight_id.unique()
+        ids = df.loc[(df.timestamp.between(datetime_start, datetime_end)) & (df.flight_id.isin(ids))].flight_id.unique()
 
     return df.loc[df.flight_id.isin(ids)]
 
@@ -87,11 +130,12 @@ def assign_landing_time(
         destination_lon=FRANKFURT_LON,
         check_distance=DISTANCE_AIRPORT,  # largest distance that's possible within Frankfurt airport to lat and lon
         check_speed=GROUNDSPEED_LANDING,
+        remove_noise=False
 ):
     """
     assigns distance to airport and landing time
     """
-    df = get_complete_flights(df, timeframe=timeframe)
+    df = get_complete_flights(df, timeframe=timeframe, remove_noise=remove_noise)
 
     # find first onground True value of those which have speed below threshold and are sufficiently near to
     # destination coords
@@ -114,7 +158,7 @@ def assign_landing_time(
     # drop all rows in which arrival time is None. Reassign correct datatype. In Large datasets timestamps can
     # get messed up
     df = df.dropna(subset="arrival_time").astype(
-        {"timestamp": "datetime64[ns, UTC]","arrival_time": "datetime64[ns, UTC]"}
+        {"timestamp": "datetime64[ns, UTC]", "arrival_time": "datetime64[ns, UTC]"}
     )
 
     return df
@@ -136,7 +180,7 @@ def generate_holidays(timestamp, years):
     return holiday
 
 
-def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"]):
+def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-01-01 00:00:00"], remove_noise=False):
     """
     takes in Traffic object, selects only full flights, combines flights together which belong together and assigns
     unique identifier, which uses callsign and firstseen-timestamp to uniquely identify flights. Calculates distance
@@ -148,7 +192,7 @@ def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-0
     Interval must be a list of strings in the form "yyyy-mm-dd hh:mm:ss", "yyyy-mm-dd hh:mm:ss""
     """
 
-    df_flights = assign_landing_time(df_flights, relevant_time)
+    df_flights = assign_landing_time(df_flights, relevant_time, remove_noise=remove_noise)
     # remove onground True values after (including) plane has landed.
     df_flights = df_flights.loc[df_flights.timestamp < df_flights.arrival_time]
 
@@ -158,7 +202,7 @@ def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-0
     return df_flights
 
 
-def generate_dummy_columns(df: pd.DataFrame, with_month = True):
+def generate_dummy_columns(df: pd.DataFrame, with_month=True):
     weekday_dummies = pd.get_dummies(df.weekday, prefix='weekday')
     for i in range(7):
         weekday_name = "weekday_" + str(i)
@@ -194,7 +238,31 @@ def generate_cyclical_day(timestamp):
     day_cos = np.cos(2 * np.pi * days_scaled)
     return day_sin, day_cos
 
-def generate_aux_columns(df, with_month = False):
+
+def calculate_bearing(lat1, lon1, lat2, lon2):
+    # Convert latitude and longitude to radians
+    lat1_rad = np.radians(lat1)
+    lon1_rad = np.radians(lon1)
+    lat2_rad = np.radians(lat2)
+    lon2_rad = np.radians(lon2)
+
+    # Calculate the longitude difference
+    delta_lon = lon2_rad - lon1_rad
+
+    # Calculate the bearing
+    y = np.sin(delta_lon) * np.cos(lat2_rad)
+    x = np.cos(lat1_rad) * np.sin(lat2_rad) - np.sin(lat1_rad) * np.cos(lat2_rad) * np.cos(delta_lon)
+    bearing_rad = np.arctan2(y, x)
+
+    # Convert the bearing to degrees
+    bearing_deg = np.degrees(bearing_rad)
+
+    # Normalize the bearing to the range of 0 to 360 degrees
+    bearing_deg = (bearing_deg + 360) % 360
+    return bearing_deg
+
+
+def generate_aux_columns(df, with_month=False):
     df["weekday"] = df["timestamp"].dt.isocalendar().day - 1  # Monday: 0, Sunday: 6
     if with_month:
         df["month"] = df["timestamp"].dt.month
@@ -203,11 +271,26 @@ def generate_aux_columns(df, with_month = False):
     df["holiday"] = generate_holidays(df.timestamp, years)
     df["sec_sin"], df["sec_cos"] = generate_cyclical_second(df.timestamp)
     df["day_sin"], df["day_cos"] = generate_cyclical_day(df.timestamp)
-    df = generate_dummy_columns(df,with_month=with_month)
+    bearing = calculate_bearing(FRANKFURT_LAT, FRANKFURT_LON, df.latitude, df.longitude)
+    df["bearing_sin"] = np.sin(bearing * 2 * np.pi / 360)
+    df["bearing_cos"] = np.cos(bearing * 2 * np.pi / 360)
+    track_radians = np.radians(df["track"])
+    df["track_sin"] = np.sin(track_radians)
+    df["track_cos"] = np.cos(track_radians)
+    df["latitude_rad"] = np.radians(df.latitude)
+    df["longitude_rad"] = np.radians(df.longitude)
+
+    df = generate_dummy_columns(df, with_month=with_month)
+
     df = df.drop(columns=["weekday", "month"]) if with_month else df.drop(columns=["weekday"])
+    df.reset_index(drop=True, inplace=True)
+
     return df
+
 
 def seconds_till_arrival(flights_data: pd.DataFrame):
     time_till_arrival = flights_data["arrival_time"] - flights_data["timestamp"]
     seconds = time_till_arrival.dt.total_seconds()
     return seconds
+
+
