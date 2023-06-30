@@ -14,9 +14,11 @@ def load_data_batch(
         file_batch,
         data_queue,
         sample_fraction=0.1,
-        random = True,
-        remove_noise = True,
-        quick_sample = False # for testing purposes when we only want to load one day
+        random=True,
+        remove_noise=True,
+        quick_sample=False, # for testing purposes when we only want to load one day,
+        keep_flight_id=False,
+        distance_range=None,
 ):
     # if random false, every 1/sample_fraction row
     first_day = True
@@ -32,23 +34,25 @@ def load_data_batch(
                 new_flights = Traffic.from_file(file, key=key,
                                                 parse_dates=["day", "firstseen", "hour", "last_position",
                                                              "lastseen", "timestamp"]).data
-
+                columns = [
+                    "distance",
+                    "altitude",
+                    "geoaltitude",
+                    "arrival_time",
+                    "timestamp",
+                    "vertical_rate",
+                    "groundspeed",
+                    "track",
+                    "latitude",
+                    "longitude",
+                ]
+                if keep_flight_id:
+                    columns.append("flight_id")
                 if first_day:
                     df_flights = preprocess_traffic(new_flights, remove_noise=remove_noise).sort_values(['flight_id', 'timestamp'])
-                    df_flights = df_flights[
-                        [
-                            "distance",
-                            "altitude",
-                            "geoaltitude",
-                            "arrival_time",
-                            "timestamp",
-                            "vertical_rate",
-                            "groundspeed",
-                            "track",
-                            "latitude",
-                            "longitude",
-                        ]
-                    ].dropna()
+                    df_flights = df_flights[columns].dropna()
+                    if distance_range is not None:
+                        df_flights = df_flights[df_flights.distance.between(distance_range[0], distance_range[1])]
                     if random:
                         df_flights = df_flights.sample(frac=sample_fraction)
                     else:
@@ -60,20 +64,9 @@ def load_data_batch(
                     end = start + datetime.timedelta(days=1)
                     relevant_time = [str(start), str(end)]
                     df_add_flights = preprocess_traffic(old_flights, relevant_time, remove_noise=remove_noise).sort_values(['flight_id', 'timestamp'])
-                    df_add_flights = df_add_flights[
-                        [
-                            "distance",
-                            "altitude",
-                            "geoaltitude",
-                            "arrival_time",
-                            "timestamp",
-                            "vertical_rate",
-                            "groundspeed",
-                            "track",
-                            "latitude",
-                            "longitude",
-                        ]
-                    ].dropna()
+                    df_add_flights = df_add_flights[columns].dropna()
+                    if distance_range is not None:
+                        df_add_flights = df_add_flights[df_add_flights.distance.between(distance_range[0], distance_range[1])]
                     del(old_flights)
                     if random:
                         df_add_flights = df_add_flights.sample(frac=sample_fraction)
@@ -100,6 +93,8 @@ def load_data(
         quick_sample: bool = False,
         save_csv: bool = False,
         csv_file: str = None,
+        keep_flight_id=False,
+        distance_range=None
 ) -> None:
 
     if len(flight_files) < threads:
@@ -112,7 +107,7 @@ def load_data(
         data_queue = Queue()
         processes = []
         for batch in file_batches:
-            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random, remove_noise, quick_sample))
+            process = Process(target=load_data_batch, args=(batch, data_queue, sample_fraction, random, remove_noise, quick_sample, keep_flight_id, distance_range))
             process.start()
             processes.append(process)
         df_train = data_queue.get()
