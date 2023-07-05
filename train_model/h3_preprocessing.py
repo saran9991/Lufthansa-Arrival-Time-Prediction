@@ -1,10 +1,13 @@
 import pandas as pd
-#I don't think h3 needs to be imported anywhere, I've just installed h3 and h3pandas and it works without importing
-#Which is odd
-#Also you have to restart kernel from what I noticed to run it again on the dataset for some reason - in case a case of this arises
+import h3
+import h3pandas
+
+
+# You have to restart kernel from what I noticed to run it again on the dataset for some reason if such a thing happens
+
 def h3_preprocess(data, res):
     dfh3 = data
-    dfh3.rename(columns={'latitude':'lat', 'longitude':'lng'}, inplace=True)
+    dfh3.rename(columns={'latitude': 'lat', 'longitude': 'lng'}, inplace=True)
 
     print('Doing geo_to_h3')
     dfh3 = dfh3.h3.geo_to_h3(res)
