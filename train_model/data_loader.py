@@ -159,3 +159,21 @@ def batch_generator(df: pd.DataFrame, y, batchsize, with_sample_weights=False, s
             yield X_batch, y_batch, sample_batch
         else:
             yield X_batch, y_batch
+
+def batch_generator_lstm(X, y, batchsize):
+    size = X.shape[0]
+    while True:
+        shuffled_indices = np.random.permutation(np.arange(size))
+        X = X[shuffled_indices, :, :]
+        y = y[shuffled_indices]
+
+        i = 0
+        while i < size:
+            X_batch = X[i:i+batchsize, :, :]
+            y_batch = y[i:i+batchsize]
+
+            yield X_batch, y_batch
+            i += batchsize
+
+
+        yield X_batch, y_batch

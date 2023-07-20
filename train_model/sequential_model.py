@@ -20,10 +20,15 @@ class SequentialModel:
             params: dict = {},
             scaler = None,
             cols_to_scale = None,
-            postprocess_output_function = None
+            postprocess_output_function = None,
+            model_type = "vanilla"
     ):
         if build_new:
-            self.model = build_sequential(
+            if model_type == "lstm":
+                build_function = build_lstm
+            else:
+                build_function = build_sequential
+            self.model = build_function(
                 lr=params["lr"],
                 input_dims = params["input_dims"],
                 output_dims=params["output_dims"],

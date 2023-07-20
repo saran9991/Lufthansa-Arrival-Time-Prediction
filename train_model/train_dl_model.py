@@ -8,7 +8,7 @@ import os
 if __name__ == "__main__":
     print("Num GPUs Available: ", len(tf_config.list_physical_devices('GPU')))
     scaler_file = ".." + os.sep + "trained_models" + os.sep + "std_scaler_reg_new.bin"
-    model_file = ".." + os.sep + "trained_models" + os.sep + "dl_model_0617_with_2023"
+    model_file = ".." + os.sep + "trained_models" + os.sep + "dl_model_near"
     scaler = load_joblib(scaler_file)
 
     dl_model = SequentialModel(
