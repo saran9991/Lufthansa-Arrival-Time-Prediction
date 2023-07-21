@@ -57,10 +57,11 @@ def test_data_h3_average(traindata, testdata):
     testdata['hour'] = testdata['timestamp'].dt.hour
 
     for group_cols, col, new_col_name in [
-        (['h3index', 'hour'], 'hexbin_hourly_density', 'hexbin_hourly_density'),
-        (['h3index', 'hour'], 'average_hourly_speed', 'average_hourly_speed'),
-        (['h3index', 'hour'], 'average_hourly_altitude', 'average_hourly_altitude'),
+        (['h3index', 'hour'], 'hexbin_hourly_density', 'average_hourly_hexbin_density'),
+        (['h3index', 'hour'], 'average_hourly_speed', 'average_hourly_avg_speed'),
+        (['h3index', 'hour'], 'average_hourly_altitude', 'average_hourly_avg_altitude'),
     ]:
         testdata = calculate_average_and_merge(traindata, testdata, group_cols, col, new_col_name)
-
+    testdata.rename(columns={'average_hourly_hexbin_density': 'hexbin_hourly_density', 'average_hourly_avg_speed': 'average_hourly_speed', 'average_hourly_avg_altitude':'average_hourly_altitude'}, inplace=True)
     return testdata
+
