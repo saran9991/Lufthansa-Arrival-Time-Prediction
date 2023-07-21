@@ -23,7 +23,7 @@ def h3_preprocess(data, res):
     #final['average_hourly_eta'] = grouped['y'].transform('mean')
 
     final = final.rename(columns={'lat': 'latitude', 'lng': 'longitude'})
-    #final.drop(columns = ['h3_hour', 'h3index', 'geometry'], inplace= True
+    #final.drop(columns = ['h3_hour', 'h3index', 'geometry'], inplace= True)
     final.reset_index(inplace=True, drop=True)
     print('H3 Features Added')
 
@@ -55,16 +55,11 @@ def calculate_average_and_merge(traindata, testdata, group_cols, col, new_col_na
 def test_data_h3_average(traindata, testdata):
     traindata['hour'] = traindata['timestamp'].dt.hour
     testdata['hour'] = testdata['timestamp'].dt.hour
-    traindata = weekday_column(traindata)
-    testdata  = weekday_column(testdata)
 
     for group_cols, col, new_col_name in [
-        (['h3index', 'weekday'], 'hexbin_hourly_density', 'average_hexbin_weekday_density'),
-        (['h3index', 'weekday'], 'average_hourly_speed', 'average_weekday_speed'),
-        (['h3index', 'weekday'], 'average_hourly_altitude', 'average_weekday_altitude'),
-        (['h3index', 'hour'], 'hexbin_hourly_density', 'average_hourly_hexbin_density'),
-        (['h3index', 'hour'], 'average_hourly_speed', 'average_hourly_avg_speed'),
-        (['h3index', 'hour'], 'average_hourly_altitude', 'average_hourly_avg_altitude'),
+        (['h3index', 'hour'], 'hexbin_hourly_density', 'hexbin_hourly_density'),
+        (['h3index', 'hour'], 'average_hourly_speed', 'average_hourly_speed'),
+        (['h3index', 'hour'], 'average_hourly_altitude', 'average_hourly_altitude'),
     ]:
         testdata = calculate_average_and_merge(traindata, testdata, group_cols, col, new_col_name)
 
