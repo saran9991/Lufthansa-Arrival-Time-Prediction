@@ -8,7 +8,7 @@ import os
 if __name__ == "__main__":
     print("Num GPUs Available: ", len(tf_config.list_physical_devices('GPU')))
     scaler_file = ".." + os.sep + "trained_models" + os.sep + "std_scaler_reg_new.bin"
-    model_file = ".." + os.sep + "trained_models" + os.sep + "dl_model_0602_no_coord"
+    model_file = ".." + os.sep + "trained_models" + os.sep + "dl_model_near"
     scaler = load_joblib(scaler_file)
 
     dl_model = SequentialModel(
@@ -16,7 +16,7 @@ if __name__ == "__main__":
         model_path=model_file,
         params={
             "lr": 0.0001,
-            "input_dims": (19,),
+            "input_dims": (23,),
             "output_dims": 1,
             "layer_sizes": (1024, 512, 256),
             "dropout_rate": 0.2,
@@ -33,6 +33,5 @@ if __name__ == "__main__":
         fraction_train=1,
         fraction_test=1,
         batch_size=32,
-        drop_columns=["arrival_time", "timestamp", "track", "latitude", "longitude",  "bearing_sin", "bearing_cos", "latitude_rad", "longitude_rad"]
     )
     dl_model.save_model()

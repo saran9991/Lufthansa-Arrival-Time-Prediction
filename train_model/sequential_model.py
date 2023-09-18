@@ -20,10 +20,15 @@ class SequentialModel:
             params: dict = {},
             scaler = None,
             cols_to_scale = None,
-            postprocess_output_function = None
+            postprocess_output_function = None,
+            model_type = "vanilla"
     ):
         if build_new:
-            self.model = build_sequential(
+            if model_type == "lstm":
+                build_function = build_lstm
+            else:
+                build_function = build_sequential
+            self.model = build_function(
                 lr=params["lr"],
                 input_dims = params["input_dims"],
                 output_dims=params["output_dims"],
@@ -101,3 +106,20 @@ def build_sequential(lr, input_dims, output_dims, layer_sizes, dropout_rate, act
 
     return model
 
+def build_lstm(lr, input_dims, output_dims, layer_sizes, dropout_rate, lstm_layers, activation, loss):
+    model = keras.Sequential()
+    model.add(keras.layers.Input(shape=(None, input_dims)))  # Assuming timesteps is variable (None)
+    for i in range(lstm_layers - 1):
+        model.add(keras.layers.LSTM(layer_sizes[i], return_sequences=True))  # Add LSTM layer here with return_sequences=True
+    model.add(keras.layers.LSTM(layer_sizes[lstm_layers - 1], return_sequences=False))  # Last LSTM layer with return_sequences=False
+
+    for size in layer_sizes[lstm_layers:]:
+        model.add(keras.layers.Dense(size))
+        model.add(keras.layers.LeakyReLU(alpha=0.05))
+        model.add(keras.layers.Dropout(dropout_rate))  # Add dropout layer here
+
+    model.add(keras.layers.Dense(output_dims, activation=activation))
+
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss=loss)
+
+    return model

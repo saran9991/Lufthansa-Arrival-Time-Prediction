@@ -293,4 +293,3 @@ def seconds_till_arrival(flights_data: pd.DataFrame):
     seconds = time_till_arrival.dt.total_seconds()
     return seconds
 
-
