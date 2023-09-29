@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import unittest
-from src.preprocessing import preprocess_traffic
+from src.processing_utils.preprocessing import preprocess_traffic
 
 class TestPreprocessing(unittest.TestCase):
     """Test all preprocessing functions """
@@ -22,7 +22,6 @@ class TestPreprocessing(unittest.TestCase):
             "timestamp",
             "arrival_time_true"
         ]
-        print(os.getcwd())
         file = "../data/testdata/test_data_arrival_time.csv"
         df = pd.read_csv(file, parse_dates= cols_data)
         df["identifier"] = df.firstseen.dt.date.astype(str) + df.callsign
@@ -52,7 +51,6 @@ class TestPreprocessing(unittest.TestCase):
             "timestamp",
             "arrival_time_true"
         ]
-        print(os.getcwd())
         file = "../data/testdata/test_data_arrival_time.csv"
         df = pd.read_csv(file, parse_dates= cols_data)
         df["identifier"] = df.firstseen.dt.date.astype(str) + df.callsign
