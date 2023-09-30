@@ -8,8 +8,8 @@ from src.processing_utils.preprocessing import generate_aux_columns
 
 
 class LinearModel:
-    def __init__(self, cols, pol_degree=1, model_file=None, scaler=None, pol_only=True, cols_to_scale=None):
-        self.feature_columns = cols
+    def __init__(self, features, pol_degree=1, model_file=None, scaler=None, pol_only=True, cols_to_scale=None):
+        self.feature_columns = features
         self.pol_degree = pol_degree
         self.scaler = scaler
         self.model = LinearRegression() if model_file is None else load(model_file)
