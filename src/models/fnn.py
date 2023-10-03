@@ -1,4 +1,3 @@
-import copy
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras import Sequential
