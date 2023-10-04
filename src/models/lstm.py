@@ -7,8 +7,8 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 
 def build_lstm(
-        lr: float = 0.001,
-        input_dims: tuple = (21,),
+        lr: float = 0.0001,
+        n_features: int = 21,
         output_dims: int = 1,
         lstm_layers: tuple = (1024, 512),
         dense_layers: tuple = (512, 256, 128),
@@ -17,7 +17,7 @@ def build_lstm(
         loss: str = "MAE",
 ):
     model = Sequential()
-    model.add(Input(shape=(None, input_dims)))
+    model.add(Input(shape=(None, n_features)))
     for i in range(len(lstm_layers) - 1):
         model.add(LSTM(lstm_layers[i], return_sequences=True))
     model.add(LSTM(lstm_layers[- 1], return_sequences=False))  # Last LSTM layer with return_sequences=False
