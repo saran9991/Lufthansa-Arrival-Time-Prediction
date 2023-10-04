@@ -1,2 +1,6 @@
-Frankfurt_LH_2301.h5
+**/__pycache__/
+playground
+.idea/
+train_model
+trained_models
 data
