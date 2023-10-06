@@ -1,32 +1,52 @@
 import pandas as pd
 import h3
 import h3pandas
+from tqdm import tqdm
+import time
+import logging
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
 
-# You have to restart kernel from what I noticed to run it again on the dataset for some reason if such a thing happens
+def update_progress(pbar):
+    pbar.update(1)
+    time.sleep(0.5)
 
 def h3_preprocess(data, res):
-    dfh3 = data
-    dfh3.rename(columns={'latitude': 'lat', 'longitude': 'lng'}, inplace=True)
-    dfh3 = dfh3.h3.geo_to_h3(res)
-    dfh3['h3index'] = dfh3.index  # Seperate column for h3 address
-    dfh3['timestamp'] = pd.to_datetime(dfh3['timestamp'])
-    dfh3 = dfh3[~(dfh3.h3index == '0')]  # These are due to NaN Latitude and Longitude
+    logging.info("Starting H3 preprocessing...")
 
-    final = dfh3.h3.h3_to_geo_boundary()
-    final['h3_hour'] = final['timestamp'].dt.floor('H')
-    grouped = final.groupby(['h3index', 'h3_hour'])
+    with tqdm(total=9, desc="Processing", dynamic_ncols=True) as pbar:
+        data.rename(columns={'latitude': 'lat', 'longitude': 'lng'}, inplace=True)
+        update_progress(pbar)
 
-    final['hexbin_hourly_density'] = grouped['flight_id'].transform('count')
-    final['average_hourly_speed'] = grouped['groundspeed'].transform('mean')
-    final['average_hourly_altitude'] = grouped['altitude'].transform('mean')
-    #final['average_hourly_eta'] = grouped['y'].transform('mean')
+        data = data.h3.geo_to_h3(res)
+        data['h3index'] = data.index
+        update_progress(pbar)
 
-    final = final.rename(columns={'lat': 'latitude', 'lng': 'longitude'})
-    #final.drop(columns = ['h3_hour', 'h3index', 'geometry'], inplace= True)
-    final.reset_index(inplace=True, drop=True)
-    print('H3 Features Added')
+        data['timestamp'] = pd.to_datetime(data['timestamp'])
+        data = data[~(data.h3index == '0')]
+        update_progress(pbar)
 
+        final = data.h3.h3_to_geo_boundary()
+        update_progress(pbar)
+
+        final['h3_hour'] = final['timestamp'].dt.floor('H')
+        grouped = final.groupby(['h3index', 'h3_hour'])
+        update_progress(pbar)
+
+        final['hexbin_hourly_density'] = grouped['flight_id'].transform('count')
+        update_progress(pbar)
+
+        final['average_hourly_speed'] = grouped['groundspeed'].transform('mean')
+        update_progress(pbar)
+
+        final['average_hourly_altitude'] = grouped['altitude'].transform('mean')
+        update_progress(pbar)
+
+        final = final.rename(columns={'lat': 'latitude', 'lng': 'longitude'})
+        final.reset_index(inplace=True, drop=True)
+        update_progress(pbar)
+
+    logging.info('H3 Features Added')
     return final
 
 def get_h3_index(data, res):
