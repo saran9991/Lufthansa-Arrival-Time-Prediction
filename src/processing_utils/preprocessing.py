@@ -64,8 +64,7 @@ def get_complete_flights(df, timeframe, remove_noise=False):
     # assign unique id which properly identifies a flight. A flight is uniquely identified by callsing and firstseen-
     # timestamp.
 
-    df['flight_id'] = df.groupby(['callsign', 'firstseen']).ngroup()
-    df['flight_id'] = df["callsign"] + "_" + df['flight_id'].astype(str)
+    df['flight_id'] = df["callsign"] + "_" + df['firstseen'].astype(str)
 
     if remove_noise:
         df = noise_remove(df)
