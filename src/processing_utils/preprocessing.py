@@ -68,7 +68,7 @@ def get_complete_flights(df, timeframe, remove_noise=False):
     df['flight_id'] = df["callsign"] + "_" + df['flight_id'].astype(str)
 
     if remove_noise:
-        pass  # Saran please implement!
+        df = noise_remove(df)
 
     # filter for onground True and ground_speed below 150
     df_flights = df[["flight_id", "groundspeed", "onground"]]
@@ -194,7 +194,7 @@ def preprocess_traffic(df_flights, relevant_time=["1970-01-01 00:00:00", "2030-0
 
     df_flights = assign_landing_time(df_flights, relevant_time, remove_noise=remove_noise)
     # remove onground True values after (including) plane has landed.
-    df_flights = df_flights.loc[df_flights.timestamp < df_flights.arrival_time]
+    df_flights = df_flights.loc[df_flights.timestamp <= df_flights.arrival_time]
 
     # onground is no longer needed.
     df_flights = df_flights.drop("onground", axis=1)
