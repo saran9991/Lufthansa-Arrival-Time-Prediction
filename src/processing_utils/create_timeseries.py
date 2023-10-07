@@ -14,7 +14,10 @@ drop_columns = ["timestamp", "track", "latitude", "longitude", "arrival_time"]
 n_steps = 40  # number of timestamps
 
 # Create an empty list to hold 3D arrays for each flight
-def create_time_series_array(df, sequence_length, flight_ids):
+import numpy as np
+import tqdm
+
+def create_time_series_array(df, sequence_length, flight_ids, padding_value=np.nan, apply_padding=True):
     all_data = []
 
     # Loop over each flight_id
@@ -23,23 +26,29 @@ def create_time_series_array(df, sequence_length, flight_ids):
         df_flight = df[df['flight_id'] == flight_id]
         flight_data = df_flight.drop("flight_id", axis=1).values
 
-        # Skip if there's not enough data for this flight
-        if len(flight_data) < sequence_length:
-            continue
+        if apply_padding:
+            # Add n-1 pads at the beginning of flight_data
+            padding = np.full((sequence_length-1, flight_data.shape[1]), padding_value)
+            flight_data_padded = np.vstack((padding, flight_data))
+        else:
+            flight_data_padded = flight_data
 
-        # Create a 3D array for this flight using strides
-        flight_array = sliding_window_view(flight_data, (sequence_length, flight_data.shape[1]))
+        # Ensure enough data is present for at least one window
+        if len(flight_data_padded) >= sequence_length:
+            # Create a 3D array for this flight using strides
+            # Assuming sliding_window_view function is defined or imported in your script
+            flight_array = sliding_window_view(flight_data_padded, (sequence_length, flight_data_padded.shape[1]))
 
-        # Append to the list
-        all_data.append(flight_array)
+            # Append to the list
+            all_data.append(flight_array)
 
     # Concatenate all the 3D arrays together
     three_dim_array = np.concatenate(all_data, axis=0).squeeze()
     return three_dim_array
 
 if __name__ == "__main__":
-    array_path_train = os.path.join("../..", "data", "processed", "timeseries_20sec_2023_train.npy")
-    array_path_val = os.path.join("../..", "data", "processed", "timeseries_20sec_2023_val.npy")
+    array_path_train = os.path.join("../..", "data", "processed", "timeseries_20secpad_2023_train.npy")
+    array_path_val = os.path.join("../..", "data", "processed", "timeseries_20secpad_2023_val.npy")
 
     df = pd.read_csv(data_path, parse_dates=["arrival_time", "timestamp"])
     arrival_days = df['arrival_time'].dt.date.unique()

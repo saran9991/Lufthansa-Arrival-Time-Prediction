@@ -5,6 +5,10 @@ from tensorflow.keras.layers import Input, LeakyReLU, Dropout, Dense, LSTM
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, LSTM, Dense, LeakyReLU, Dropout, Masking
+from tensorflow.keras.optimizers import Adam
+
 
 def build_lstm(
         lr: float = 0.0001,
@@ -15,22 +19,32 @@ def build_lstm(
         dropout_rate: float = 0.2,
         activation: str = "softplus",
         loss: str = "MAE",
+        masking_value: float = 0.0,  # Default masking_value set to 0.0; adjust as needed
+        use_masking: bool = True  # Parameter to decide whether or not to use the Masking layer
 ):
     model = Sequential()
     model.add(Input(shape=(None, n_features)))
+
+    if use_masking:
+        model.add(Masking(mask_value=masking_value))  # Masking layer to handle padding values if applied
+
+    # Add LSTM layers
     for i in range(len(lstm_layers) - 1):
         model.add(LSTM(lstm_layers[i], return_sequences=True))
-    model.add(LSTM(lstm_layers[- 1], return_sequences=False))  # Last LSTM layer with return_sequences=False
+    model.add(LSTM(lstm_layers[-1], return_sequences=False))  # Last LSTM layer with return_sequences=False
 
+    # Add Dense layers
     for size in dense_layers:
         model.add(Dense(size))
         model.add(LeakyReLU(alpha=0.05))
         model.add(Dropout(dropout_rate))
+
     model.add(Dense(output_dims, activation=activation))
 
     model.compile(optimizer=Adam(learning_rate=lr), loss=loss)
 
     return model
+
 
 def batch_generator(X, y, batchsize):
     """X must be 3-d np-arrays of timeseries, y is a 1-d array of targets. The data is already preprocessed"""
