@@ -50,7 +50,15 @@ def noise_remove(data):
     drop_conditions = cond1 | cond2 | cond3 | cond4 | cond5 | cond6 | cond7
     data = data[~drop_conditions]
     data.drop(
-        columns=['time_difference', 'onground_prev', 'onground_next', 'time_difference_prev', 'time_difference_next'],
+        columns=[
+            'time_difference',
+            'onground_prev',
+            'onground_next',
+            'time_difference_prev',
+            'time_difference_next',
+            'altitude_difference',
+            'geoaltitude_difference'
+        ],
         inplace=True)  # 'altitude_difference', 'geoaltitude_difference' could be useful later
 
     return data
@@ -99,7 +107,12 @@ def get_complete_flights(df, timeframe, remove_noise=False):
 
     # if there is a relevant timeframe, drop flights which do not have data in that timeframe
     if timeframe:
-        datetime_start = pd.to_datetime(datetime.strptime(timeframe[0], '%Y-%m-%d %H:%M:%S'), utc=True)
+        try:
+            datetime_start = pd.to_datetime(datetime.strptime(timeframe[0], '%Y-%m-%d %H:%M:%S'), utc=True)
+        except ValueError as e:
+            print("ValueError caught:", e)
+
+
         datetime_end = pd.to_datetime(datetime.strptime(timeframe[1], '%Y-%m-%d %H:%M:%S'), utc=True)
         ids = df.loc[(df.timestamp.between(datetime_start, datetime_end)) & (df.flight_id.isin(ids))].flight_id.unique()
 
