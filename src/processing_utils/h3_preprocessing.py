@@ -11,10 +11,10 @@ def update_progress(pbar):
     pbar.update(1)
     time.sleep(0.5)
 
-def h3_preprocess(data, res):
+def get_h3_index(data, res):
     logging.info("Starting H3 preprocessing...")
 
-    with tqdm(total=9, desc="Processing", dynamic_ncols=True) as pbar:
+    with tqdm(total=5, desc="Processing", dynamic_ncols=True) as pbar:
         data.rename(columns={'latitude': 'lat', 'longitude': 'lng'}, inplace=True)
         update_progress(pbar)
 
@@ -29,35 +29,12 @@ def h3_preprocess(data, res):
         final = data.h3.h3_to_geo_boundary()
         update_progress(pbar)
 
-        final['h3_hour'] = final['timestamp'].dt.floor('H')
-        grouped = final.groupby(['h3index', 'h3_hour'])
-        update_progress(pbar)
-
-        final['hexbin_hourly_density'] = grouped['flight_id'].transform('count')
-        update_progress(pbar)
-
-        final['average_hourly_speed'] = grouped['groundspeed'].transform('mean')
-        update_progress(pbar)
-
-        final['average_hourly_altitude'] = grouped['altitude'].transform('mean')
-        update_progress(pbar)
-
         final = final.rename(columns={'lat': 'latitude', 'lng': 'longitude'})
         final.reset_index(inplace=True, drop=True)
         update_progress(pbar)
 
     logging.info('H3 Features Added')
     return final
-
-def get_h3_index(data, res):
-    dfh3 = data
-    dfh3.rename(columns={'latitude': 'lat', 'longitude': 'lng'}, inplace=True)
-    dfh3 = dfh3.h3.geo_to_h3(res)
-    dfh3['h3index'] = dfh3.index  # Seperate column for h3 address
-    dfh3 = dfh3.rename(columns={'lat': 'latitude', 'lng': 'longitude'})
-    dfh3.reset_index(inplace=True, drop=True)
-    print('H3 Index Added')
-    return dfh3
 
 def weekday_column(traindata):
     weekday_df = traindata.filter(regex='^weekday_')
