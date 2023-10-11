@@ -4,6 +4,7 @@ import h3pandas
 from tqdm import tqdm
 import time
 import logging
+import folium
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
 
@@ -13,7 +14,7 @@ def update_progress(pbar):
 
 def get_h3_index(data, res):
     logging.info("Starting H3 preprocessing...")
-
+    data = data.copy()
     with tqdm(total=5, desc="Processing", dynamic_ncols=True) as pbar:
         data.rename(columns={'latitude': 'lat', 'longitude': 'lng'}, inplace=True)
         update_progress(pbar)
@@ -35,6 +36,27 @@ def get_h3_index(data, res):
 
     logging.info('H3 Features Added')
     return final
+
+def plot_h3(df, save_html=False, file_name="map.html"):
+    """
+    Create a Folium map with hexagon geometries plotted.
+
+    :param df: DataFrame containing h3index and geometry columns
+    :param save_html: Whether to save the map as an HTML file
+    :param file_name: The file name of the saved HTML map if save_html is True
+    :return: Folium map object
+    """
+    m = folium.Map(location=[df['geometry'].apply(lambda geom: geom.centroid.y).mean(),
+                             df['geometry'].apply(lambda geom: geom.centroid.x).mean()],
+                   zoom_start=15)
+
+    for _, row in df.iterrows():
+        folium.GeoJson(row['geometry'], name=str(row['h3index'])).add_to(m)
+
+    if save_html:
+        m.save(file_name)
+
+    return m
 
 def weekday_column(traindata):
     weekday_df = traindata.filter(regex='^weekday_')
