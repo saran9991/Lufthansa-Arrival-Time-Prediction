@@ -14,6 +14,17 @@ def update_progress(pbar):
     time.sleep(0.5)
 
 def get_h3_index(data, res):
+    '''
+    Adds H3 index and Hexagonal cell geometry column.
+
+    Parameters:
+    - data: A DataFrame containing the geographic coordinates and timestamps of data points.
+    - res: The desired resolution of the H3 index.
+
+    Returns:
+    - final: The enhanced DataFrame with an added H3 index column and Hexagonal cell geometry column.
+    '''
+
     logging.info("Starting H3 preprocessing...")
     data = data.copy()
     with tqdm(total=5, desc="Processing", dynamic_ncols=True) as pbar:
