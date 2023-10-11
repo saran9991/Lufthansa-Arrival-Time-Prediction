@@ -16,7 +16,9 @@ class LinearModel:
         self.pol_only = pol_only
         self.cols_to_scale = cols_to_scale
 
-    def preprocess(self, features, features_to_scale):
+    def preprocess(self, features, features_to_scale=None):
+        if features_to_scale is None:
+            features_to_scale = self.cols_to_scale
         if self.scaler == None:
             self.scaler = StandardScaler()
             self.scaler.fit(features[features_to_scale])
@@ -38,11 +40,11 @@ class LinearModel:
         return X
 
     def fit(self, X_train, y_train):
-        self.model.fit(X_train, y_train)
+        X = self.preprocess(X_train)
+        self.model.fit(X, y_train)
 
-    def evaluate(self, X_test, y_test):
-
-        y_pred = self.model.predict(X_test)
+    def evaluate(self, X_test, y_test, preprocess=True):
+        y_pred = self.predict(X_test, preprocess)
         mae = mean_absolute_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
 
