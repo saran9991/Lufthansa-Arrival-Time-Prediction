@@ -5,6 +5,7 @@ from tqdm import tqdm
 import time
 import logging
 import folium
+from datetime import timedelta
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
 
@@ -57,6 +58,22 @@ def plot_h3(df, save_html=False, file_name="map.html"):
         m.save(file_name)
 
     return m
+
+def add_density(df):
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['density_30_minutes_past'] = 0
+    for index, row in df.iterrows():
+        current_time = row['timestamp'] #4:30PM
+        current_h3index = row['h3index'] # index 1
+        current_flight_id = row['flight_id']
+        past_30_minutes_records = df[
+            (df['timestamp'] < current_time) &
+            (df['timestamp'] >= current_time - timedelta(minutes=30)) &
+            (df['h3index'] == current_h3index) &
+            (df['flight_id'] != current_flight_id)
+            ]
+        df.at[index, 'density_30_minutes_past'] = past_30_minutes_records['flight_id'].nunique()
+    return df
 
 def weekday_column(traindata):
     weekday_df = traindata.filter(regex='^weekday_')
