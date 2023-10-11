@@ -16,11 +16,13 @@ def build_lstm(
         output_dims: int = 1,
         lstm_layers: tuple = (1024, 512),
         dense_layers: tuple = (512, 256, 128),
+        dropout_lstm: float = None,
+        dropout_lstm_recurrent: float = None,
         dropout_rate: float = 0.2,
         activation: str = "softplus",
         loss: str = "MAE",
         masking_value: float = 0.0,  # Default masking_value set to 0.0; adjust as needed
-        use_masking: bool = True  # Parameter to decide whether or not to use the Masking layer
+        use_masking: bool = False  # Parameter to decide whether or not to use the Masking layer
 ):
     model = Sequential()
     model.add(Input(shape=(None, n_features)))
@@ -30,8 +32,19 @@ def build_lstm(
 
     # Add LSTM layers
     for i in range(len(lstm_layers) - 1):
-        model.add(LSTM(lstm_layers[i], return_sequences=True))
-    model.add(LSTM(lstm_layers[-1], return_sequences=False))  # Last LSTM layer with return_sequences=False
+        model.add(
+            LSTM(
+                lstm_layers[i],
+                return_sequences=True,
+                #dropout=dropout_lstm,
+                #recurrent_dropout=dropout_lstm_recurrent
+            ))
+    model.add(LSTM(
+        lstm_layers[-1],
+        return_sequences=False,
+        #dropout=dropout_lstm,
+        #recurrent_dropout=dropout_lstm_recurrent,
+    ))  # Last LSTM layer with return_sequences=False
 
     # Add Dense layers
     for size in dense_layers:

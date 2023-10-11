@@ -25,7 +25,7 @@ if __name__ == "__main__":
     scaler = load(PATH_SCALER)
 
 
-    best_mae = 1000
+    best_mae = 10000
     df_train = pd.read_csv(PATH_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])
     df_test = pd.read_csv(PATH_TEST_DATA, parse_dates=["arrival_time", "timestamp"])
     y_train = seconds_till_arrival(df_train)
@@ -34,15 +34,11 @@ if __name__ == "__main__":
     for i in range(1, 20):
         degrees = i
         model = LinearModel(features=FEATURES, pol_degree=degrees, scaler=scaler, cols_to_scale=COLS_TO_SCALE)
-        X_train_processed = model.preprocess(df_train, COLS_TO_SCALE)
-
-        model.fit(X_train_processed, y_train)
+        model.fit(df_train, y_train)
         if i == 1:
             best_model = copy.deepcopy(model.model)
 
-        X_test_processed = model.preprocess(df_test, COLS_TO_SCALE)
-
-        mae, r2 = model.evaluate(X_test_processed, y_test)
+        mae, r2 = model.evaluate(df_test, y_test)
         print("degree", degrees, "mae", mae, r2, r2)
         if mae < best_mae:
             best_mae = mae

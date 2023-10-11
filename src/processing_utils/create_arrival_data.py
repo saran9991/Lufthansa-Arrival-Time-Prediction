@@ -113,7 +113,7 @@ def load_data(
 if __name__ == "__main__":
     path_data = os.path.join("..", "..", "data", "raw")
     files = os.listdir(path_data)
-    file_batch = [os.path.join(path_data, file) for file in files]
-    df = load_data(file_batch, 6)
-    path_arrivals = os.path.join("..", "..", "data", "processed", "arrivals_2022.csv")
+    file_batch = [os.path.join(path_data, file) for file in files][-2:]
+    df = load_data(file_batch, 2)
+    path_arrivals = os.path.join("..", "..", "data", "processed", "arrivals_2023_janfeb.csv")
     df.to_csv(path_arrivals, index=False)
