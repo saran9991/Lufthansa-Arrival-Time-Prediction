@@ -1,10 +1,12 @@
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras import Sequential
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Input, LeakyReLU, Dropout, Dense
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, Callback
+from tensorflow.keras.losses import get as get_loss
 from src.processing_utils.preprocessing import generate_aux_columns
 
 
@@ -49,7 +51,15 @@ def batch_generator(X, y, batchsize):
 
 
 class VanillaNN():
-    def __init__(self, features, scaler=None, cols_to_scale=None, model_file=None, **network_params):
+    def __init__(
+            self,
+            features: list,
+            scaler=None,
+            cols_to_scale: list = None,
+            model_file: str = None,
+            distance_relative: bool = False,
+            **network_params
+    ):
         if model_file is None:
             self.model = build_sequential(**network_params)
         else:
@@ -58,6 +68,7 @@ class VanillaNN():
         self.feature_columns = features
         self.scaler = scaler
         self.cols_to_scale = cols_to_scale
+        self.distance_relative = distance_relative
 
     def preprocess(self, features):
         if self.scaler is None:
@@ -79,6 +90,9 @@ class VanillaNN():
             reduce_factor=0.7,
             batch_size=32,
     ):
+        if self.distance_relative:
+            y_train = y_train/X_train.distance
+            y_val = y_val/X_val.distance
         features_train = self.preprocess(X_train)
         features_val = self.preprocess(X_val)
 
@@ -94,27 +108,99 @@ class VanillaNN():
             patience=patience_reduce,
             min_lr=1e-7
         )
+        # Initialize callbacks list with always-used callbacks
+        callbacks = [early_stopping, reduce_lr]
+
+
         generator = batch_generator(features_train, y_train, batchsize=batch_size)
+
 
         self.model.fit(
             generator,
             max_queue_size=2000,
             validation_data=(features_val, y_val),
-            callbacks=[early_stopping, reduce_lr],
+            callbacks=callbacks,
             epochs=2000,
             steps_per_epoch=X_train.shape[0] // batch_size,
         )
 
-    def predict(self, X, preprocess=True):
+    def predict(self, X, preprocess=True, index_distance=0):
+        # If preprocessing is required
         if preprocess:
             X_pred = self.preprocess(X)
-            return self.model.predict(X_pred)
-        else:
-            return self.model.predict(X)
 
-    def evaluate(self, X, y, preprocess=True):
-        if preprocess:
-            X_eval = self.preprocess(X)
-            self.model.evaluate(X_eval, y)
+            # If predictions should be relative to distance
+            if self.distance_relative:
+                if isinstance(X, pd.DataFrame):
+                    distances = X["distance"].values
+                else:
+                    distance_index = self.feature_columns.index("distance")
+                    distances = X[:, distance_index]
+
+                # Ensure distances is 2D for broadcasting
+                distances = distances.reshape(-1, 1)
+                predictions = self.model.predict(X_pred) * distances
+                return predictions
+
+            # If no distance relation is required
+            return self.model.predict(X_pred)
+
+        # If no preprocessing is required but predictions should be relative to distance
+        elif not preprocess and self.distance_relative:
+            X_unscaled = self.scaler.inverse_transform(X[self.cols_to_scale])
+
+            if isinstance(X, pd.DataFrame):
+                distances = X_unscaled[:, self.cols_to_scale.index("distance")]
+            else:
+                distances = X_unscaled[:, index_distance]
+
+            # Ensure distances is 2D for broadcasting
+            distances = distances.reshape(-1, 1)
+            return self.model.predict(X) * distances
+
+        # If no preprocessing and no distance relation is required
+        return self.model.predict(X)
+
+    def evaluate(self, X_test, y_test, batch_size=32):
+        """
+        Evaluate the model on a test set. Return the loss for the raw predictions
+        and, if self.distance_relative is True, the loss for the predictions converted
+        back to seconds till arrival by multiplying with the distance.
+        """
+        # Ensure the features are preprocessed
+        features_test = self.preprocess(X_test)
+
+        # Retrieve the actual loss function object from the string
+        loss_fn = get_loss(self.model.loss)
+
+        # Get distances, assuming X_test is a DataFrame
+        distances = X_test["distance"].values
+
+        # If the model is trained to predict relative times till arrival
+        if self.distance_relative:
+            # Predict using the model
+            predictions_relative = self.model.predict(features_test, batch_size=batch_size).flatten()
+
+            # Convert the relative predictions back into seconds till arrival
+            predictions_absolute = predictions_relative * distances
+
+            # Calculate and return both losses using the retrieved loss function
+            loss_relative = float(loss_fn(y_test / distances, predictions_relative).numpy())
+            loss_absolute = float(loss_fn(y_test, predictions_absolute).numpy())
+            print(f"Evaluation Results:\n"
+                  f" - Loss (relative to distance): {loss_relative:.4f}\n"
+                  f" - Loss (absolute): {loss_absolute:.4f}\n")
+            return loss_relative, loss_absolute
+
+
+        # If the model is trained to predict absolute times till arrival
         else:
-            self.model.evaluate(X, y)
+            # Predict using the model
+            predictions = self.model.predict(features_test, batch_size=batch_size).flatten()
+
+            # Calculate and return the loss using the retrieved loss function
+            loss = float(loss_fn(y_test, predictions).numpy())
+            print(f"Evaluation Result:\n"
+                  f" - Loss: {loss:.4f}\n")
+
+            return loss, None
