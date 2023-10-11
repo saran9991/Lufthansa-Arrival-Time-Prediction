@@ -3,9 +3,9 @@ import os
 from src.models.lstm import LSTMNN
 
 PATH_DATA = os.path.join("..", "..", "data", "processed")
-PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2022_train.npy")
-PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2022_val.npy")
-PATH_TEST_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2023_val.npy")
+PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2022_train_far.npy")
+PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2022_val_far.npy")
+PATH_TEST_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2023_train_far.npy")
 PATH_MODEL = os.path.join("..", "..", "trained_models", "lstm_near_231003")
 
 if __name__ == "__main__":
