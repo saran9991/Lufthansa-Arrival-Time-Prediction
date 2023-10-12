@@ -1,4 +1,3 @@
-from traffic.core import Traffic
 import numpy as np
 import pandas as pd
 import holidays
@@ -11,10 +10,6 @@ FRANKFURT_LON = 8.565197
 DISTANCE_AIRPORT = 4.87,  # largest distance that's possible within Frankfurt airport to lat and lon
 GROUNDSPEED_LANDING = 170
 
-FRANKFURT_LAT = 50.037621
-FRANKFURT_LON = 8.565197
-DISTANCE_AIRPORT = 4.87,  # largest distance that's possible within Frankfurt airport to lat and lon
-GROUNDSPEED_LANDING = 170
 
 
 def noise_remove(data):
