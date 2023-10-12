@@ -7,8 +7,8 @@ from bayes_opt import BayesianOptimization
 from src.models.fnn import VanillaNN
 from src.processing_utils.preprocessing import seconds_till_arrival
 
-PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_data.csv")
-PATH_TEST_DATA = os.path.join("..", "..", "data", "processed", "test_data.csv")
+PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_data_0617.csv")
+PATH_TEST_DATA = os.path.join("..", "..", "data", "processed", "test_data_2023.csv")
 PATH_SCALER = os.path.join("..", "..", "trained_models", "std_scaler_reg_new.bin")
 PATH_MODEL =os.path.join("..", "..", "trained_models", "vanilla_nn")
 
@@ -21,26 +21,39 @@ FEATURES = ['distance', 'altitude', 'vertical_rate', 'groundspeed', 'holiday', '
 COLS_TO_SCALE = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 
 param_bounds = {
-    'exponent': (5, 12),  # [2^5, 2^11] -> [32, 2048]
-    'n_layers': (1, 6),  # Example range, adjust as per requirement
-    'dropout_rate': (0, 0.8),
+    "dropout_rate": (0.05, 0.8),
+    "n_layers": (0.51, 3.49),  # Example range, adjust as per requirement
+    "neurons_layer_1": (128, 4096),
+    "neurons_layer_2": (128, 4096),
+    "neurons_layer_3": (128, 4096),
 }
 
-def calc_layers(exponent, n_layers):
-    initial_neurons = 2 ** round(exponent)  # Calculate initial neuron count
-    layers = [initial_neurons]  # List to hold the neuron counts for each layer
 
-    # Add subsequent layers, halving neuron count each time
-    for _ in range(1, round(n_layers)):
-        next_layer_neurons = layers[-1] // 2  # Halve the neuron count
+def thin_data(df: pd.DataFrame, target: pd.Series, thinning_factor: int):
+    """
+    Thins the input dataframe and target series by selecting every
+    `thinning_factor`-th row after sorting by 'arrival_time' and 'timestamp'.
 
-        # Check if the neuron count is below the minimum (2)
-        if next_layer_neurons < 2:
-            break
+    Parameters:
+        df (pd.DataFrame): The input dataframe to thin.
+        target (pd.Series): The target values corresponding to df.
+        thinning_factor (int): The thinning parameter to use.
 
-        layers.append(next_layer_neurons)
+    Returns:
+        pd.DataFrame, pd.Series: Thinned dataframe and target series.
+    """
+    if thinning_factor <= 0:
+        raise ValueError("Thinning factor must be a positive integer.")
 
-    return tuple(layers)
+    # Ensure the data is sorted by 'arrival_time' and 'timestamp' before thinning
+    df_sorted = df.sort_values(by=['arrival_time', 'timestamp'])
+    target_sorted = target.loc[df_sorted.index]
+
+    # Use slicing to select every `thinning_factor`-th row
+    thinned_df = df_sorted.iloc[::thinning_factor, :]
+    thinned_target = target_sorted.iloc[::thinning_factor]
+
+    return thinned_df, thinned_target
 
 
 
@@ -48,21 +61,33 @@ if __name__ == "__main__":
     scaler = load(PATH_SCALER)
     df_flights = pd.read_csv(PATH_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])
 
-    # Split unique arrival_time 90/10
-    arrival_times = df_flights.arrival_time.unique()
-    train_times = np.random.choice(arrival_times, size=int(0.95 * len(arrival_times)), replace=False)
 
-    df_train = df_flights.loc[df_flights.arrival_time.isin(train_times)]
-    y_train = seconds_till_arrival(df_train)
-    df_val = df_flights.loc[~df_flights.arrival_time.isin(train_times)]
-    y_val = seconds_till_arrival(df_val)
+    arrival_times_train = df_flights.arrival_time.unique()
+
+    # also split test set into evaluate and optimize sets. Optimize is used for objective function
+    # evaluate set is used for teh very last test, after full model is trained.
 
     df_test = pd.read_csv(PATH_TEST_DATA, parse_dates=["arrival_time", "timestamp"])
     y_test = seconds_till_arrival(df_test)
+    arrival_times_test = df_test.arrival_time.unique()
+    optimize_times = np.random.choice(arrival_times_test, size=int(0.5 * len(arrival_times_test)), replace=False)
+    df_optimize = df_test.loc[df_test.arrival_time.isin(optimize_times)]
+    y_optimize = seconds_till_arrival(df_optimize)
+    df_evaluate = df_test.loc[~df_test.arrival_time.isin(optimize_times)]
+    y_evaluate = seconds_till_arrival(df_evaluate)
+    path_df_eval = os.path.join("..", "..", "data", "processed", "final_testset_vanilla.csv")
+    df_evaluate.to_csv(path_df_eval, index=False)
 
-    def objective_function(exponent, n_layers, dropout_rate):
+    def objective_function(dropout_rate, n_layers, neurons_layer_1, neurons_layer_2, neurons_layer_3):
+        train_times = np.random.choice(arrival_times_train, size=int(0.95 * len(arrival_times_train)), replace=False)
+        df_train = df_flights.loc[df_flights.arrival_time.isin(train_times)]
+        y_train = seconds_till_arrival(df_train)
+        df_val = df_flights.loc[~df_flights.arrival_time.isin(train_times)]
+        y_val = seconds_till_arrival(df_val)
+        X_train, target_train = thin_data(df_train, y_train, thinning_factor=4)
+        layers = (neurons_layer_1, neurons_layer_2, neurons_layer_3)
 
-        layer_sizes = calc_layers(exponent, n_layers)
+        layer_sizes = tuple([round(layers[i]) for i in range(round(n_layers))])
 
 
         model = VanillaNN(
@@ -73,9 +98,10 @@ if __name__ == "__main__":
             dropout_rate=dropout_rate,
             distance_relative=True,
         )
+
         print("Current Params dropout {}, architecture {}".format(dropout_rate, layer_sizes))
-        model.fit(df_train, y_train, df_val, y_val, batch_size=512, patience_early=1, patience_reduce=1)
-        loss = model.evaluate(df_test, y_test)
+        model.fit(X_train, target_train, df_val, y_val, batch_size=256, patience_early=3, patience_reduce=2)
+        loss = model.evaluate(df_optimize, y_optimize)
         return -loss[0]
 
 
@@ -84,9 +110,13 @@ if __name__ == "__main__":
         pbounds=param_bounds,
         random_state=1,
     )
-    optimizer.maximize(n_iter=10)
+    optimizer.maximize(n_iter=40)
+    best_params = optimizer.max['params']
+    best_target = optimizer.max['target']
+
+    # Displaying the best parameters
+    print("The optimal parameters are: {}".format(best_params))
+    print("The maximum value of the target function is: {}".format(best_target))
     # Access all results
     for i, res in enumerate(optimizer.res):
         print("Iteration {}: \n\t{}".format(i, res))
-    #model.model.save(PATH_MODEL)
-

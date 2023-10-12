@@ -10,7 +10,6 @@ import os
 from tqdm.auto import tqdm
 
 
-
 def load_data_batch(
         file_batch,
         data_queue,
