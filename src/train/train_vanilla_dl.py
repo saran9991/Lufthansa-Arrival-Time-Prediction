@@ -1,4 +1,4 @@
-import copy
+import re
 import numpy as np
 import pandas as pd
 from joblib import dump, load
@@ -8,13 +8,13 @@ from src.models.fnn import VanillaNN
 from src.processing_utils.preprocessing import seconds_till_arrival
 
 PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_data_0617.csv")
-PATH_TEST_DATA = os.path.join("..", "..", "data", "processed", "test_data_2023.csv")
+PATH_TEST_DATA = os.path.join("..", "..", "data", "processed", "test_data_2023_Jan-Mai.csv")
 PATH_SCALER = os.path.join("..", "..", "trained_models", "std_scaler_reg_new.bin")
 PATH_MODEL =os.path.join("..", "..", "trained_models", "vanilla_nn")
 
 COLS_NUMERIC = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 
-FEATURES = ['distance', 'altitude', 'vertical_rate', 'groundspeed', 'holiday', 'sec_sin', 'sec_cos', 'day_sin',
+FEATURES = ['distance', 'altitude', 'geoaltitude', 'vertical_rate', 'groundspeed', 'holiday', 'sec_sin', 'sec_cos', 'day_sin',
             'day_cos', 'bearing_sin', 'bearing_cos', 'track_sin', 'track_cos', 'latitude_rad', 'longitude_rad',
             'weekday_1', 'weekday_2', 'weekday_3', 'weekday_4', 'weekday_5', 'weekday_6']
 
@@ -66,17 +66,22 @@ if __name__ == "__main__":
 
     # also split test set into evaluate and optimize sets. Optimize is used for objective function
     # evaluate set is used for teh very last test, after full model is trained.
-
+    path_df_eval = os.path.join("..", "..", "data", "processed", "final_testset_vanilla.csv")
+    df_evaluate = pd.read_csv(path_df_eval, parse_dates=["arrival_time", "timestamp"])
     df_test = pd.read_csv(PATH_TEST_DATA, parse_dates=["arrival_time", "timestamp"])
     y_test = seconds_till_arrival(df_test)
-    arrival_times_test = df_test.arrival_time.unique()
-    optimize_times = np.random.choice(arrival_times_test, size=int(0.5 * len(arrival_times_test)), replace=False)
-    df_optimize = df_test.loc[df_test.arrival_time.isin(optimize_times)]
-    y_optimize = seconds_till_arrival(df_optimize)
-    df_evaluate = df_test.loc[~df_test.arrival_time.isin(optimize_times)]
+    #arrival_times_test = df_test.arrival_time.unique()
+    #optimize_times = np.random.choice(arrival_times_test, size=int(0.5 * len(arrival_times_test)), replace=False)
+    #df_optimize = df_test.loc[df_test.arrival_time.isin(optimize_times)]
+    #y_optimize = seconds_till_arrival(df_optimize)
+    #df_evaluate = df_test.loc[~df_test.arrival_time.isin(optimize_times)]
+    #y_evaluate = seconds_till_arrival(df_evaluate)
+    evaluate_times = df_evaluate.arrival_time.unique()
+    df_evaluate = df_test.loc[df_test.arrival_time.isin(evaluate_times)]
     y_evaluate = seconds_till_arrival(df_evaluate)
-    path_df_eval = os.path.join("..", "..", "data", "processed", "final_testset_vanilla.csv")
-    df_evaluate.to_csv(path_df_eval, index=False)
+    df_optimize = df_test.loc[~df_test.arrival_time.isin(evaluate_times)]
+    y_optimize = seconds_till_arrival(df_optimize)
+    #df_evaluate.to_csv(path_df_eval, index=False)
 
     def objective_function(dropout_rate, n_layers, neurons_layer_1, neurons_layer_2, neurons_layer_3):
         train_times = np.random.choice(arrival_times_train, size=int(0.95 * len(arrival_times_train)), replace=False)
@@ -105,12 +110,39 @@ if __name__ == "__main__":
         return -loss[0]
 
 
+    # Define a regex pattern to find relevant rows
+
+
     optimizer = BayesianOptimization(
         f=objective_function,
         pbounds=param_bounds,
         random_state=1,
     )
-    optimizer.maximize(n_iter=40)
+    # Parse the file and register data points
+
+    pattern = re.compile(r'\|\s*\d+\s*\|\s*[-]*\d+(\.\d+)?(e[+-]?\d+)?')
+    with open("optimization vanilla 2.txt", "r") as file:
+        for line in file:
+            if pattern.search(line):
+                try:
+                    values = [float(val.strip()) for val in line.split("|")[1:8]]
+                    target = values[1]
+                    params = {
+                        "dropout_rate": values[2],
+                        "n_layers": int(values[3]),  # Casting to int as it appears to be an integer parameter
+                        "neurons_layer_1": values[4],
+                        "neurons_layer_2": values[5],
+                        "neurons_layer_3": values[6],
+                    }
+                    optimizer.register(params=params, target=target)
+                except ValueError as e:
+                    print(f"Skipping line due to error: {e}")
+
+    for i, res in enumerate(optimizer.res):
+        print("Iteration {}: \n\t{}".format(i, res))
+
+
+    optimizer.maximize(n_iter=50, init_points=0)
     best_params = optimizer.max['params']
     best_target = optimizer.max['target']
 
