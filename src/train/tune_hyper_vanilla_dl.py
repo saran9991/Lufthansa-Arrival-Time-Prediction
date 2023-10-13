@@ -21,7 +21,8 @@ FEATURES = ['distance', 'altitude', 'geoaltitude', 'vertical_rate', 'groundspeed
 COLS_TO_SCALE = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 
 param_bounds = {
-    "dropout_rate": (0.05, 0.8),
+    "batch_size": (32, 700),
+    "dropout_rate": (0.05, 5),
     "n_layers": (0.51, 3.49),  # Example range, adjust as per requirement
     "neurons_layer_1": (128, 4096),
     "neurons_layer_2": (128, 4096),
@@ -55,6 +56,28 @@ def thin_data(df: pd.DataFrame, target: pd.Series, thinning_factor: int):
 
     return thinned_df, thinned_target
 
+def register_params(optimizer, text_file= "optimization vanilla 2.txt"):
+    """load known results from previous optimization"""
+    pattern = re.compile(r'\|\s*\d+\s*\|\s*[-]*\d+(\.\d+)?(e[+-]?\d+)?')
+    with open(text_file, "r") as file:
+        for line in file:
+            if pattern.search(line):
+                try:
+                    values = [float(val.strip()) for val in line.split("|")[1:8]]
+                    target = values[1]
+                    params = {
+                        "dropout_rate": values[2],
+                        "n_layers": int(values[3]),  # Casting to int as it appears to be an integer parameter
+                        "neurons_layer_1": values[4],
+                        "neurons_layer_2": values[5],
+                        "neurons_layer_3": values[6],
+                    }
+                    optimizer.register(params=params, target=target)
+                except ValueError as e:
+                    print(f"Skipping line due to error: {e}")
+
+    for i, res in enumerate(optimizer.res):
+        print("Iteration {}: \n\t{}".format(i, res))
 
 
 if __name__ == "__main__":
@@ -119,30 +142,9 @@ if __name__ == "__main__":
         random_state=1,
     )
     # Parse the file and register data points
+    #register_params(optimizer)
 
-    pattern = re.compile(r'\|\s*\d+\s*\|\s*[-]*\d+(\.\d+)?(e[+-]?\d+)?')
-    with open("optimization vanilla 2.txt", "r") as file:
-        for line in file:
-            if pattern.search(line):
-                try:
-                    values = [float(val.strip()) for val in line.split("|")[1:8]]
-                    target = values[1]
-                    params = {
-                        "dropout_rate": values[2],
-                        "n_layers": int(values[3]),  # Casting to int as it appears to be an integer parameter
-                        "neurons_layer_1": values[4],
-                        "neurons_layer_2": values[5],
-                        "neurons_layer_3": values[6],
-                    }
-                    optimizer.register(params=params, target=target)
-                except ValueError as e:
-                    print(f"Skipping line due to error: {e}")
-
-    for i, res in enumerate(optimizer.res):
-        print("Iteration {}: \n\t{}".format(i, res))
-
-
-    optimizer.maximize(n_iter=50, init_points=0)
+    optimizer.maximize(n_iter=10, init_points=5)
     best_params = optimizer.max['params']
     best_target = optimizer.max['target']
 
