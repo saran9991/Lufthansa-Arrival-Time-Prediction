@@ -61,7 +61,8 @@ class VanillaNN():
             **network_params
     ):
         if model_file is None:
-            self.model = build_sequential(**network_params)
+            input_dims = (len(features),)
+            self.model = build_sequential(input_dims=input_dims, **network_params)
         else:
             self.model = load_model(model_file)
 

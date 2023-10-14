@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
@@ -18,23 +17,7 @@ drop_columns = ["timestamp", "track", "latitude", "longitude", "arrival_time"]
 COLS_TO_SCALE = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 scaler = load_joblib(scaler_path)
 
-def calc_layers(exponent, n_layers):
-    initial_neurons = 2 ** round(exponent)  # Calculate initial neuron count
-    layers = [initial_neurons]  # List to hold the neuron counts for each layer
-
-    # Add subsequent layers, halving neuron count each time
-    for _ in range(1, round(n_layers)):
-        next_layer_neurons = layers[-1] // 2  # Halve the neuron count
-
-        # Check if the neuron count is below the minimum (2)
-        if next_layer_neurons < 2:
-            break
-
-        layers.append(next_layer_neurons)
-
-    return tuple(layers)
-
-def create_training_data(train = True, test_size=0.2, n_steps= 40, stepsize=1):
+def create_training_data(train = True, test_size=0.2, n_steps= 40, stepsize=1, distance_relative=True):
     stride_train = max(1, round(10/stepsize))
     stride_val = max(1, round(25 / stepsize))
     if train:
@@ -53,6 +36,8 @@ def create_training_data(train = True, test_size=0.2, n_steps= 40, stepsize=1):
         flight_ids_train = df['flight_id'].unique()
     df = generate_aux_columns(df)
     y = seconds_till_arrival(df)
+    if distance_relative:
+        y = y/df.distance
     df = df.drop(columns=drop_columns)
 
     X_numeric = df[COLS_TO_SCALE]
@@ -92,23 +77,14 @@ def create_training_data(train = True, test_size=0.2, n_steps= 40, stepsize=1):
 
 if __name__ == "__main__":
     param_bounds = {
-        'exponent_lstm': (7, 13),  # [2^5, 2^11] -> [32, 2048]
-        'n_layers_lstm': (1, 6),  # Example range, adjust as per requirement
-        'exponent_fc': (8, 13),  # [2^5, 2^11] -> [32, 2048]
-        'n_layers_fc': (1, 6),  # Example range, adjust as per requirement
-        'dropout_rate_fc': (0, 0.8),
-        'stepsize': (1,10),
-        'sequence_length': (4, 50),
-
+        "neurons_layer_1_lstm": (128, 1500),
+        "stepsize": (0.51,10.49),
+        "sequence_length": (19.51, 60.49),
     }
     def objective_function(
-            exponent_lstm,
-            n_layers_lstm,
-            exponent_fc,
-            n_layers_fc,
-            dropout_rate_fc,
+            neurons_layer_1_lstm,
             stepsize,
-            sequence_length,
+            sequence_length
     ):
         stepsize = round(stepsize)
         sequence_length = round(sequence_length)
@@ -120,28 +96,28 @@ if __name__ == "__main__":
             stepsize=stepsize
         )
 
-        layer_sizes_lstm = calc_layers(exponent_lstm, n_layers_lstm)
-        layer_sizes_fc = calc_layers(exponent_fc, n_layers_fc)
+        layer_sizes_lstm = (round(neurons_layer_1_lstm),)
+        layers_fc = (1024, 512, 256)
+
         n_features = X_train.shape[2]
         model = LSTMNN(
             n_features=n_features,
             lr=0.001,
             lstm_layers=layer_sizes_lstm,
-            dense_layers=layer_sizes_fc,
-            dropout_rate=dropout_rate_fc,
+            dense_layers=layers_fc,
+            dropout_rate= 0.2,
+            distance_relative=True,
+            scaler=scaler,
         )
         print("""
         Current Params: 
-        dropout fc {}, architecture fc {}, 
         architecture lstm{}, stepsize: {}, sequence length: {}
         """.format(
-            dropout_rate_fc,
-            layer_sizes_fc,
             layer_sizes_lstm,
             stepsize,
             sequence_length
         ))
-        model.fit(X_train, y_train, X_val, y_val, batch_size=256, patience_early=2, patience_reduce=1)
+        model.fit(X_train, y_train, X_val, y_val, batch_size=256, patience_early=3, patience_reduce=2)
 
         X_test, y_test = create_training_data(
             train=False,
@@ -149,14 +125,14 @@ if __name__ == "__main__":
             stepsize=stepsize
         )
         loss = model.evaluate(X_test, y_test)
-        return -loss
+        return -loss[0]
 
     optimizer = BayesianOptimization(
         f=objective_function,
         pbounds=param_bounds,
         random_state=1,
     )
-    optimizer.maximize(n_iter=20)
+    optimizer.maximize(n_iter=50)
     # Access all results
     for i, res in enumerate(optimizer.res):
         print("Iteration {}: \n\t{}".format(i, res))

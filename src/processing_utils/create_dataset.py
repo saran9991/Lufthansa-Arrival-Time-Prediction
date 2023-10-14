@@ -176,16 +176,11 @@ if __name__ == "__main__":
         "longitude",
     ]
     import random
-    FILENAME = "training_data_2023_10sec_sample.csv"
-    flights = pd.read_csv(os.path.join("..", "..", "data", "processed", "arrivals_2023_janfeb.csv"))
-    flights["flight_id"] = flights["callsign"] + "_" + flights['firstseen'].astype(str)
-    ids = list(flights.flight_id.unique())
-
-    sample_flight_ids = random.sample(ids, int(0.5*len(ids)))
+    FILENAME = "training_data_2022.csv"
     queue = Queue()
     dirname = os.path.join("..", "..", "data", "raw")
     save_file = os.path.join("..", "..", "data", "processed", FILENAME)
-    files = [os.path.join(dirname,file) for file in os.listdir(dirname)][-2:]
-    df = load_data(files, threads=6, ids=sample_flight_ids, keep_cols=columns)
+    files = [os.path.join(dirname,file) for file in os.listdir(dirname)]
+    df = load_data(files, threads=6, keep_cols=columns, sample_fraction=0.005)
     df.to_csv(save_file, index= False)
 

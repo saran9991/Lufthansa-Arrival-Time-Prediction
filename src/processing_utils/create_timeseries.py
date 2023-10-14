@@ -6,7 +6,7 @@ from joblib import load as load_joblib
 from sklearn.model_selection import train_test_split
 from src.processing_utils.preprocessing import generate_aux_columns, seconds_till_arrival
 
-data_path = os.path.join("../..", "data", "processed","training_data_2023_10sec_sample.csv")
+data_path = os.path.join("../..", "data", "processed","training_data_2022_10sec_sample.csv")
 scaler_path = os.path.join("../..", "trained_models", "std_scaler_reg_new.bin")
 COLS_NUMERIC = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 drop_columns = ["timestamp", "track", "latitude", "longitude", "arrival_time"]
@@ -22,7 +22,7 @@ from functools import partial
 def process_chunk(df, sequence_length, flight_ids_chunk, stride, stepsize, padding_value, apply_padding):
     all_data = []
 
-    for flight_id in tqdm.tqdm(flight_ids_chunk, desc="Processing flights", leave=False):
+    for flight_id in flight_ids_chunk:
         # Get data for the flight
         df_flight = df[df['flight_id'] == flight_id]
         flight_data = df_flight.drop("flight_id", axis=1).values
