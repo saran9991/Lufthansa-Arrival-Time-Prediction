@@ -176,11 +176,11 @@ if __name__ == "__main__":
         "longitude",
     ]
     import random
-    FILENAME = "test_data_2023_Jan-Mai.csv"
+    FILENAME = "training_data_2022.csv"
     queue = Queue()
     dirname = os.path.join("..", "..", "data", "raw")
     save_file = os.path.join("..", "..", "data", "processed", FILENAME)
-    files = [os.path.join(dirname,file) for file in os.listdir(dirname)][-5:]
-    df = load_data(files, threads=1, keep_cols=columns, sample_fraction=0.005)
+    files = [os.path.join(dirname,file) for file in os.listdir(dirname)]
+    df = load_data(files, threads=6, keep_cols=columns, sample_fraction=0.005)
     df.to_csv(save_file, index= False)
 

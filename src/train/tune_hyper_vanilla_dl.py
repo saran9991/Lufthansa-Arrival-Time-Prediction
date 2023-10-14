@@ -7,7 +7,7 @@ from bayes_opt import BayesianOptimization
 from src.models.fnn import VanillaNN
 from src.processing_utils.preprocessing import seconds_till_arrival
 
-PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_data_0617.csv")
+PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_data.csv")
 PATH_TEST_DATA = os.path.join("..", "..", "data", "processed", "test_data_2023_Jan-Mai.csv")
 PATH_SCALER = os.path.join("..", "..", "trained_models", "std_scaler_reg_new.bin")
 PATH_MODEL =os.path.join("..", "..", "trained_models", "vanilla_nn")
@@ -22,11 +22,12 @@ COLS_TO_SCALE = ["distance", "altitude", "geoaltitude", "vertical_rate", "ground
 
 param_bounds = {
     "batch_size": (32, 700),
-    "dropout_rate": (0.05, 5),
+    "dropout_rate": (0.05, 0.6),
     "n_layers": (0.51, 3.49),  # Example range, adjust as per requirement
     "neurons_layer_1": (128, 4096),
     "neurons_layer_2": (128, 4096),
     "neurons_layer_3": (128, 4096),
+    "patience_reduce": (0.51, 5.49),
 }
 
 
@@ -106,7 +107,16 @@ if __name__ == "__main__":
     y_optimize = seconds_till_arrival(df_optimize)
     #df_evaluate.to_csv(path_df_eval, index=False)
 
-    def objective_function(dropout_rate, n_layers, neurons_layer_1, neurons_layer_2, neurons_layer_3):
+    def objective_function(
+            batch_size,
+            dropout_rate,
+            n_layers,
+            neurons_layer_1,
+            neurons_layer_2,
+            neurons_layer_3,
+            patience_reduce
+    ):
+        patience_reduce = round(patience_reduce)
         train_times = np.random.choice(arrival_times_train, size=int(0.95 * len(arrival_times_train)), replace=False)
         df_train = df_flights.loc[df_flights.arrival_time.isin(train_times)]
         y_train = seconds_till_arrival(df_train)
@@ -126,9 +136,18 @@ if __name__ == "__main__":
             dropout_rate=dropout_rate,
             distance_relative=True,
         )
-
-        print("Current Params dropout {}, architecture {}".format(dropout_rate, layer_sizes))
-        model.fit(X_train, target_train, df_val, y_val, batch_size=256, patience_early=3, patience_reduce=2)
+        patience_early = patience_reduce+1
+        print("Current Params batchsize {} dropout {}, architecture {}, patience {}".format(
+            batch_size, dropout_rate, layer_sizes, patience_reduce))
+        model.fit(
+            X_train,
+            target_train,
+            df_val,
+            y_val,
+            batch_size=round(batch_size),
+            patience_early=patience_early,
+            patience_reduce=patience_reduce
+        )
         loss = model.evaluate(df_optimize, y_optimize)
         return -loss[0]
 
@@ -144,7 +163,7 @@ if __name__ == "__main__":
     # Parse the file and register data points
     #register_params(optimizer)
 
-    optimizer.maximize(n_iter=10, init_points=5)
+    optimizer.maximize(n_iter=40, init_points=5)
     best_params = optimizer.max['params']
     best_target = optimizer.max['target']
 

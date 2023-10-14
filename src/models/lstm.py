@@ -4,7 +4,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Input, LeakyReLU, Dropout, Dense, LSTM
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-
+from tensorflow.keras.losses import get as get_loss
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, LSTM, Dense, LeakyReLU, Dropout, Masking
 from tensorflow.keras.optimizers import Adam
@@ -16,8 +16,6 @@ def build_lstm(
         output_dims: int = 1,
         lstm_layers: tuple = (1024, 512),
         dense_layers: tuple = (512, 256, 128),
-        dropout_lstm: float = None,
-        dropout_lstm_recurrent: float = None,
         dropout_rate: float = 0.2,
         activation: str = "softplus",
         loss: str = "MAE",
@@ -79,11 +77,14 @@ def batch_generator(X, y, batchsize):
         yield X_batch, y_batch
 
 class LSTMNN():
-    def __init__(self, model_file=None, **network_params):
+    def __init__(self, scaler, distance_relative=False, index_distance=1, model_file=None, **network_params):
         if model_file is None:
             self.model = build_lstm(**network_params)
         else:
             self.model = load_model(model_file)
+        self.distance_relative = True
+
+        self.scaler = scaler
 
     def fit(
             self,
@@ -122,4 +123,22 @@ class LSTMNN():
         return self.model.predict(X)
 
     def evaluate(self, X, y):
-        return self.model.evaluate(X, y)
+        loss_fn = get_loss(self.model.loss)
+
+        if self.distance_relative:
+            inverser_scale = self.scaler.inverse_transform(X[:, -1, 0:5])
+            distances = inverser_scale[:, 0]
+            predictions_relative = self.model.predict(X).flatten()
+            predictions_absolute = predictions_relative * distances
+            # Calculate and return both losses using the retrieved loss function
+            loss_relative = float(loss_fn(y, predictions_relative).numpy())
+            loss_absolute = float(loss_fn(y * distances, predictions_absolute).numpy())
+            print(f"Evaluation Results:\n"
+                  f" - Loss (relative to distance): {loss_relative:.4f}\n"
+                  f" - Loss (absolute): {loss_absolute:.4f}\n")
+            return loss_relative, loss_absolute
+
+        loss = self.model.evaluate(X, y)
+        print(f"Evaluation Result:\n"
+              f" - Loss: {loss:.4f}\n")
+        return loss, None
