@@ -15,18 +15,18 @@ class XGBModel:
 
     def preprocess(self, data: pd.DataFrame) -> pd.DataFrame:
         data = data.copy()
-        data = data[self.feature_columns]
         data = generate_aux_columns(data)
         data = get_h3_index(data, 4)
         data = add_density(data)
+        data = data[self.feature_columns]
         return data
 
-    def fit(self, X_train: pd.DataFrame, y_train: pd.Series, preprocess=False) -> None:
+    def fit(self, X_train: pd.DataFrame, y_train: pd.Series, preprocess=True) -> None:
         if(preprocess):
             X_train = self.preprocess(X_train)
         self.model.fit(X_train, y_train)
 
-    def evaluate(self, X_test: pd.DataFrame, y_test: pd.Series, preprocess = False) -> (float, float):
+    def evaluate(self, X_test: pd.DataFrame, y_test: pd.Series, preprocess = True) -> (float, float):
         if(preprocess):
             X_test = self.preprocess(X_test)
         y_pred = self.predict(X_test)

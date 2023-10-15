@@ -70,7 +70,7 @@ def plot_h3(df, save_html=False, file_name="map.html"):
 
     return m
 
-def add_density(df):
+def add_density(data):
     '''
     This function adds density metrics to the given DataFrame based on the number of unique aircraft
     in the same h3index within the past 10, 30, and 60 minutes.
@@ -81,7 +81,7 @@ def add_density(df):
     Returns:
     - The DataFrame with added density columns for the past 10, 30, and 60 minutes.
     '''
-
+    df = data.copy()
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df = df.sort_values('timestamp').reset_index(drop=True)
 
@@ -118,11 +118,10 @@ def add_density(df):
         density_30_minutes_past.append(count_30)
         density_60_minutes_past.append(count_60)
 
-    df['density_10_minutes_past'] = density_10_minutes_past
-    df['density_30_minutes_past'] = density_30_minutes_past
-    df['density_60_minutes_past'] = density_60_minutes_past
-
-    return df
+    data['density_10_minutes_past'] = density_10_minutes_past
+    data['density_30_minutes_past'] = density_30_minutes_past
+    data['density_60_minutes_past'] = density_60_minutes_past
+    return data
 
 def weekday_column(traindata):
     weekday_df = traindata.filter(regex='^weekday_')
