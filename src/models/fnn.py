@@ -92,8 +92,8 @@ class VanillaNN():
             batch_size=32,
     ):
         if self.distance_relative:
-            y_train = y_train/X_train.distance
-            y_val = y_val/X_val.distance
+            y_train = y_train/X_train["distance"]
+            y_val = y_val/X_val["distance"]
         features_train = self.preprocess(X_train)
         features_val = self.preprocess(X_val)
 
