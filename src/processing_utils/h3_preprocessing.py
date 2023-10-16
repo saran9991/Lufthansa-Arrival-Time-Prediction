@@ -81,9 +81,10 @@ def add_density(data):
     Returns:
     - The DataFrame with added density columns for the past 10, 30, and 60 minutes.
     '''
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    data = data.sort_values('timestamp').reset_index(drop=True)
     df = data.copy()
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df = df.sort_values('timestamp').reset_index(drop=True)
+
 
     density_10_minutes_past = []
     density_30_minutes_past = []
