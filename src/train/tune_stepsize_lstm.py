@@ -132,7 +132,27 @@ if __name__ == "__main__":
         pbounds=param_bounds,
         random_state=1,
     )
-    optimizer.maximize(n_iter=50)
+
+    # add known values:
+
+    targets = [-0.926, -0.9186, -0.9776, -1.014]
+    neurons = [700, 543, 384, 867]
+    stepsizes = [1, 1, 4, 7.348]
+    sequence_lengths = [49, 26, 37, 37]
+    params = {
+        "neurons_layer_1_lstm": (128, 1500),
+        "stepsize": (0.51,10.49),
+        "sequence_length": (19.51, 60.49),
+    }
+    for i in range(len(targets)):
+        params = {
+            "neurons_layer_1_lstm": neurons[i],
+            "stepsize": stepsizes[i],
+            "sequence_length": sequence_lengths[i]
+                  }
+        target = targets[i]
+        optimizer.register(params=params, target=target)
+    optimizer.maximize(n_iter=50, init_points=0)
     # Access all results
     for i, res in enumerate(optimizer.res):
         print("Iteration {}: \n\t{}".format(i, res))

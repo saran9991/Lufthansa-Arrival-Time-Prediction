@@ -1,77 +1,84 @@
 import re
+import math
 import numpy as np
 import pandas as pd
 from joblib import dump, load
 import os
 from bayes_opt import BayesianOptimization
+import logging
 from src.models.fnn import VanillaNN
 from src.processing_utils.preprocessing import seconds_till_arrival
+from src.processing_utils.h3_preprocessing import get_h3_index, add_density as calc_h3_density
 
-PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_data.csv")
-PATH_TEST_DATA = os.path.join("..", "..", "data", "processed", "test_data_2023_Jan-Mai.csv")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_data_2022.csv")
 PATH_SCALER = os.path.join("..", "..", "trained_models", "std_scaler_reg_new.bin")
 PATH_MODEL =os.path.join("..", "..", "trained_models", "vanilla_nn")
 
 COLS_NUMERIC = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 
-FEATURES = ['distance', 'altitude', 'geoaltitude', 'vertical_rate', 'groundspeed', 'holiday', 'sec_sin', 'sec_cos', 'day_sin',
-            'day_cos', 'bearing_sin', 'bearing_cos', 'track_sin', 'track_cos', 'latitude_rad', 'longitude_rad',
-            'weekday_1', 'weekday_2', 'weekday_3', 'weekday_4', 'weekday_5', 'weekday_6']
+FEATURES = ['distance',
+            'altitude',
+            'geoaltitude',
+            'vertical_rate',
+            'groundspeed',
+            'holiday',
+            'sec_sin',
+            'sec_cos',
+            'day_sin',
+            'day_cos',
+            'bearing_sin',
+            'bearing_cos',
+            'track_sin',
+            'track_cos',
+            'latitude_rad',
+            'longitude_rad',
+            'weekday_1',
+            'weekday_2',
+            'weekday_3',
+            'weekday_4',
+            'weekday_5',
+            'weekday_6',
+            "density_10_minutes_past",
+            "density_30_minutes_past",
+            "density_30_minutes_past",
+            ]
 
 COLS_TO_SCALE = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 
 param_bounds = {
+    "lr_start": (-10, -4), #take exp
     "batch_size": (32, 700),
     "dropout_rate": (0.05, 0.6),
     "n_layers": (0.51, 3.49),  # Example range, adjust as per requirement
-    "neurons_layer_1": (128, 4096),
-    "neurons_layer_2": (128, 4096),
-    "neurons_layer_3": (128, 4096),
+    "neurons_layer_1": (7, 12), #exp base two
+    "neurons_layer_2": (7, 12),
+    "neurons_layer_3": (7, 12),
     "patience_reduce": (0.51, 5.49),
 }
 
 
-def thin_data(df: pd.DataFrame, target: pd.Series, thinning_factor: int):
-    """
-    Thins the input dataframe and target series by selecting every
-    `thinning_factor`-th row after sorting by 'arrival_time' and 'timestamp'.
-
-    Parameters:
-        df (pd.DataFrame): The input dataframe to thin.
-        target (pd.Series): The target values corresponding to df.
-        thinning_factor (int): The thinning parameter to use.
-
-    Returns:
-        pd.DataFrame, pd.Series: Thinned dataframe and target series.
-    """
-    if thinning_factor <= 0:
-        raise ValueError("Thinning factor must be a positive integer.")
-
-    # Ensure the data is sorted by 'arrival_time' and 'timestamp' before thinning
-    df_sorted = df.sort_values(by=['arrival_time', 'timestamp'])
-    target_sorted = target.loc[df_sorted.index]
-
-    # Use slicing to select every `thinning_factor`-th row
-    thinned_df = df_sorted.iloc[::thinning_factor, :]
-    thinned_target = target_sorted.iloc[::thinning_factor]
-
-    return thinned_df, thinned_target
-
-def register_params(optimizer, text_file= "optimization vanilla 2.txt"):
+def register_params(optimizer, text_file= "optimization vanilla.txt"):
     """load known results from previous optimization"""
     pattern = re.compile(r'\|\s*\d+\s*\|\s*[-]*\d+(\.\d+)?(e[+-]?\d+)?')
     with open(text_file, "r") as file:
         for line in file:
             if pattern.search(line):
                 try:
-                    values = [float(val.strip()) for val in line.split("|")[1:8]]
+                    values = [float(val.strip()) for val in line.split("|")[1:11]]
                     target = values[1]
                     params = {
-                        "dropout_rate": values[2],
-                        "n_layers": int(values[3]),  # Casting to int as it appears to be an integer parameter
-                        "neurons_layer_1": values[4],
-                        "neurons_layer_2": values[5],
-                        "neurons_layer_3": values[6],
+                        "batch_size" : values[2],
+                        "dropout_rate": values[3],
+                        "lr_start": values[4],
+                        "n_layers": int(values[5]),  # Casting to int as it appears to be an integer parameter
+                        "neurons_layer_1": values[6],
+                        "neurons_layer_2": values[7],
+                        "neurons_layer_3": values[8],
+                        "patience_reduce": values[9],
                     }
                     optimizer.register(params=params, target=target)
                 except ValueError as e:
@@ -84,30 +91,13 @@ def register_params(optimizer, text_file= "optimization vanilla 2.txt"):
 if __name__ == "__main__":
     scaler = load(PATH_SCALER)
     df_flights = pd.read_csv(PATH_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])
-
-
-    arrival_times_train = df_flights.arrival_time.unique()
-
-    # also split test set into evaluate and optimize sets. Optimize is used for objective function
-    # evaluate set is used for teh very last test, after full model is trained.
-    path_df_eval = os.path.join("..", "..", "data", "processed", "final_testset_vanilla.csv")
-    df_evaluate = pd.read_csv(path_df_eval, parse_dates=["arrival_time", "timestamp"])
-    df_test = pd.read_csv(PATH_TEST_DATA, parse_dates=["arrival_time", "timestamp"])
-    y_test = seconds_till_arrival(df_test)
-    #arrival_times_test = df_test.arrival_time.unique()
-    #optimize_times = np.random.choice(arrival_times_test, size=int(0.5 * len(arrival_times_test)), replace=False)
-    #df_optimize = df_test.loc[df_test.arrival_time.isin(optimize_times)]
-    #y_optimize = seconds_till_arrival(df_optimize)
-    #df_evaluate = df_test.loc[~df_test.arrival_time.isin(optimize_times)]
-    #y_evaluate = seconds_till_arrival(df_evaluate)
-    evaluate_times = df_evaluate.arrival_time.unique()
-    df_evaluate = df_test.loc[df_test.arrival_time.isin(evaluate_times)]
-    y_evaluate = seconds_till_arrival(df_evaluate)
-    df_optimize = df_test.loc[~df_test.arrival_time.isin(evaluate_times)]
-    y_optimize = seconds_till_arrival(df_optimize)
-    #df_evaluate.to_csv(path_df_eval, index=False)
+    df_flights = get_h3_index(df_flights, 4)
+    df_flights = calc_h3_density(df_flights)
+    df_flights["seconds_till_arrival"] = seconds_till_arrival(df_flights)
+    flight_ids = df_flights.flight_id.unique()
 
     def objective_function(
+            lr_start,
             batch_size,
             dropout_rate,
             n_layers,
@@ -117,13 +107,43 @@ if __name__ == "__main__":
             patience_reduce
     ):
         patience_reduce = round(patience_reduce)
-        train_times = np.random.choice(arrival_times_train, size=int(0.95 * len(arrival_times_train)), replace=False)
-        df_train = df_flights.loc[df_flights.arrival_time.isin(train_times)]
-        y_train = seconds_till_arrival(df_train)
-        df_val = df_flights.loc[~df_flights.arrival_time.isin(train_times)]
-        y_val = seconds_till_arrival(df_val)
-        X_train, target_train = thin_data(df_train, y_train, thinning_factor=4)
-        layers = (neurons_layer_1, neurons_layer_2, neurons_layer_3)
+        lr = math.exp(lr_start)
+        # We need to split the data into three parts: training, validation, and optimization. Validation is used
+        # during training to reduce on plateau and early stop. Optimization is used in the end of each iteration
+        # to give the loss for the parameters.
+        # Get unique flight_ids
+        unique_flight_ids = df_flights['flight_id'].unique()
+
+        # Shuffle the unique flight_ids
+        np.random.shuffle(unique_flight_ids)
+
+        # Calculate split sizes
+        total_flights = len(unique_flight_ids)
+        train_size = int(0.80 * total_flights)
+        valid_size = int(0.05 * total_flights)
+
+        # Split the flight_ids into three parts
+        train_flight_ids = unique_flight_ids[:round(train_size/3)] # to speed up hyperparameter tuning
+        valid_flight_ids = unique_flight_ids[train_size:train_size + valid_size]
+        test_flight_ids = unique_flight_ids[train_size + valid_size:]
+
+        # Create three dataframes
+        df_train = df_flights[df_flights['flight_id'].isin(train_flight_ids)]
+        X_train = df_train.drop(columns="seconds_till_arrival")
+        y_train = df_train.seconds_till_arrival
+        df_val = df_flights[df_flights['flight_id'].isin(valid_flight_ids)]
+        X_val= df_val.drop(columns="seconds_till_arrival")
+        y_val = df_val.seconds_till_arrival
+        df_test = df_flights[df_flights['flight_id'].isin(test_flight_ids)]
+        X_test= df_test.drop(columns="seconds_till_arrival")
+        y_test = df_test.seconds_till_arrival
+        # Logging the shapes
+        logger.info(f"Total data shape: {df_flights.shape}")
+        logger.info(f"Training data shape: {df_train.shape}")
+        logger.info(f"Validation data shape: {df_val.shape}")
+        logger.info(f"Test data shape: {df_test.shape}")
+
+        layers = (2**neurons_layer_1, 2**neurons_layer_2, 2**neurons_layer_3)
 
         layer_sizes = tuple([round(layers[i]) for i in range(round(n_layers))])
 
@@ -132,23 +152,27 @@ if __name__ == "__main__":
             features=FEATURES,
             scaler=scaler,
             cols_to_scale=COLS_TO_SCALE,
+            lr=lr,
             layer_sizes=layer_sizes,
             dropout_rate=dropout_rate,
             distance_relative=True,
         )
+        input_shape = model.model.layers[0].input_shape
+        logging.info('Input shape of the model: %s', input_shape)
+        model.model.summary()
         patience_early = patience_reduce+1
-        print("Current Params batchsize {} dropout {}, architecture {}, patience {}".format(
-            batch_size, dropout_rate, layer_sizes, patience_reduce))
+        logger.info("Current Params batchsize %s dropout %s, architecture %s, patience %s",
+                    batch_size, dropout_rate, layer_sizes, patience_reduce)
         model.fit(
             X_train,
-            target_train,
-            df_val,
+            y_train,
+            X_val,
             y_val,
             batch_size=round(batch_size),
             patience_early=patience_early,
             patience_reduce=patience_reduce
         )
-        loss = model.evaluate(df_optimize, y_optimize)
+        loss = model.evaluate(X_test, y_test)
         return -loss[0]
 
 
@@ -161,9 +185,9 @@ if __name__ == "__main__":
         random_state=1,
     )
     # Parse the file and register data points
-    #register_params(optimizer)
+    register_params(optimizer)
 
-    optimizer.maximize(n_iter=40, init_points=5)
+    optimizer.maximize(n_iter=60, init_points=0)
     best_params = optimizer.max['params']
     best_target = optimizer.max['target']
 
@@ -173,3 +197,4 @@ if __name__ == "__main__":
     # Access all results
     for i, res in enumerate(optimizer.res):
         print("Iteration {}: \n\t{}".format(i, res))
+

@@ -153,7 +153,7 @@ def assign_landing_time(
     )
 
     df_onground = df.loc[
-        (df.distance < check_distance) &
+        (df["distance"] < check_distance) &
         (df.groundspeed < check_speed) &
         (df.onground == True)
         ][["flight_id", "timestamp"]]

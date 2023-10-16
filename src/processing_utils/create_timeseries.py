@@ -61,7 +61,7 @@ def create_time_series_array(
     with multiprocessing.Pool(n_processes) as pool:
         func = partial(process_chunk, df, sequence_length, stride=stride, stepsize=stepsize,
                        padding_value=padding_value, apply_padding=apply_padding)
-        results = list(tqdm.tqdm(pool.imap(func, flight_id_chunks), total=len(flight_id_chunks)))
+        results = list(tqdm.tqdm(pool.map(func, flight_id_chunks), total=len(flight_id_chunks)))
 
     # Flatten the list of results and concatenate all the 3D arrays together
     all_data = [item for sublist in results for item in sublist]

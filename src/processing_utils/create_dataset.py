@@ -1,5 +1,6 @@
 from traffic.core import Traffic
 from preprocessing import preprocess_traffic, seconds_till_arrival, generate_aux_columns
+from h3_preprocessing import get_h3_index, add_density as calculate_h3_density
 import h5py
 import numpy as np
 import pandas as pd
@@ -19,7 +20,9 @@ def load_data_batch(
         quick_sample=False, # for testing purposes when we only want to load one day,
         distance_range=None,
         ids=None,
-        keep_cols=None
+        keep_cols=None,
+        h3_density=False,
+        h3_res=4,
 ):
     # if random false, every 1/sample_fraction row
     first_day = True
@@ -42,6 +45,9 @@ def load_data_batch(
                                                          "lastseen", "timestamp"]).data
             if new_flights.shape[0] > 0:
                 new_flights["flight_id"] = new_flights["callsign"] + "_" + new_flights['firstseen'].astype(str)
+                if h3_density:
+                    new_flights = get_h3_index(new_flights, h3_res)
+                    new_flights = calculate_h3_density(new_flights)
             if ids:
                 new_flights = new_flights.loc[new_flights.flight_id.isin(ids)]
             if new_flights.shape[0] > 0:
@@ -63,6 +69,9 @@ def load_data_batch(
                     continue
 
                 new_flights["flight_id"] = new_flights["callsign"] + "_" + new_flights['firstseen'].astype(str)
+                if h3_density:
+                    new_flights = get_h3_index(new_flights, h3_res)
+                    new_flights = calculate_h3_density(new_flights)
                 if ids:
                     new_flights = new_flights.loc[new_flights.flight_id.isin(ids)]
                     if new_flights.shape[0] < 1:
@@ -126,6 +135,8 @@ def load_data(
         distance_range=None,
         ids=None,
         keep_cols=None,
+        h3_density=False,
+        h3_res=4,
 ) -> None:
 
     if len(flight_files) < threads:
@@ -150,6 +161,8 @@ def load_data(
                 distance_range,
                 ids,
                 keep_cols,
+                h3_density,
+                h3_res,
             )
         )
         process.start()
@@ -174,13 +187,16 @@ if __name__ == "__main__":
         "track",
         "latitude",
         "longitude",
+        "density_10_minutes_past",
+        "density_30_minutes_past",
+        "density_60_minutes_past",
     ]
     import random
-    FILENAME = "training_data_2022.csv"
+    FILENAME = "training_data_2022_10sec_h3.csv"
     queue = Queue()
     dirname = os.path.join("..", "..", "data", "raw")
     save_file = os.path.join("..", "..", "data", "processed", FILENAME)
     files = [os.path.join(dirname,file) for file in os.listdir(dirname)]
-    df = load_data(files, threads=6, keep_cols=columns, sample_fraction=0.005)
+    df = load_data(files, threads=6, keep_cols=columns, sample_fraction=0.1, h3_density=True)
     df.to_csv(save_file, index= False)
 
