@@ -32,8 +32,8 @@ if __name__ == "__main__":
 
 
     best_mae = 10000
-    df_train = pd.read_csv(PATH_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])[::100]
-    df_test = pd.read_csv(PATH_TEST_DATA, parse_dates=["arrival_time", "timestamp"])[::100]
+    df_train = pd.read_csv(PATH_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])
+    df_test = pd.read_csv(PATH_TEST_DATA, parse_dates=["arrival_time", "timestamp"])
     y_train = seconds_till_arrival(df_train)
     y_test = seconds_till_arrival(df_test)
 
