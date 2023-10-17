@@ -18,7 +18,16 @@ PATH_TRAINING_DATA = os.path.join("..", "..", "data", "processed", "training_dat
 PATH_SCALER = os.path.join("..", "..", "trained_models", "std_scaler_reg_new.bin")
 PATH_MODEL =os.path.join("..", "..", "trained_models", "vanilla_nn")
 
-COLS_NUMERIC = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
+COLS_TO_SCALE = [
+    "distance",
+    "altitude",
+    "geoaltitude",
+    "vertical_rate",
+    "groundspeed",
+    "density_10_minutes_past",
+    "density_30_minutes_past",
+    "density_30_minutes_past",
+]
 
 FEATURES = ['distance',
             'altitude',
@@ -93,6 +102,7 @@ if __name__ == "__main__":
     df_flights = pd.read_csv(PATH_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])
     df_flights = get_h3_index(df_flights, 4)
     df_flights = calc_h3_density(df_flights)
+    df_flights = df_flights.loc[df_flights.distance<100]
     df_flights["seconds_till_arrival"] = seconds_till_arrival(df_flights)
     flight_ids = df_flights.flight_id.unique()
 
