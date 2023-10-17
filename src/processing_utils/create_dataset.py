@@ -45,9 +45,7 @@ def load_data_batch(
                                                          "lastseen", "timestamp"]).data
             if new_flights.shape[0] > 0:
                 new_flights["flight_id"] = new_flights["callsign"] + "_" + new_flights['firstseen'].astype(str)
-                if h3_density:
-                    new_flights = get_h3_index(new_flights, h3_res)
-                    new_flights = calculate_h3_density(new_flights)
+
             if ids:
                 new_flights = new_flights.loc[new_flights.flight_id.isin(ids)]
             if new_flights.shape[0] > 0:
@@ -69,9 +67,7 @@ def load_data_batch(
                     continue
 
                 new_flights["flight_id"] = new_flights["callsign"] + "_" + new_flights['firstseen'].astype(str)
-                if h3_density:
-                    new_flights = get_h3_index(new_flights, h3_res)
-                    new_flights = calculate_h3_density(new_flights)
+
                 if ids:
                     new_flights = new_flights.loc[new_flights.flight_id.isin(ids)]
                     if new_flights.shape[0] < 1:
@@ -111,6 +107,9 @@ def load_data_batch(
                         df_add_flights = df_add_flights.sample(frac=sample_fraction)
                     else:
                         df_add_flights = df_add_flights.iloc[::nthrows, :]
+                        filename = key +".csv"
+                        save_file = os.path.join("..", "..", "data", "processed", "10seconds", filename)
+                        df_add_flights.to_csv(save_file, index=False)
                     if df_created:
                         df_flights = pd.concat([df_flights, df_add_flights])
                         del (df_add_flights)
@@ -161,8 +160,6 @@ def load_data(
                 distance_range,
                 ids,
                 keep_cols,
-                h3_density,
-                h3_res,
             )
         )
         process.start()
@@ -187,16 +184,12 @@ if __name__ == "__main__":
         "track",
         "latitude",
         "longitude",
-        "density_10_minutes_past",
-        "density_30_minutes_past",
-        "density_60_minutes_past",
     ]
-    import random
-    FILENAME = "training_data_2022_10sec_h3.csv"
+    FILENAME = "training_data_2022_10sec.csv"
     queue = Queue()
     dirname = os.path.join("..", "..", "data", "raw")
     save_file = os.path.join("..", "..", "data", "processed", FILENAME)
-    files = [os.path.join(dirname,file) for file in os.listdir(dirname)]
-    df = load_data(files, threads=6, keep_cols=columns, sample_fraction=0.1, h3_density=True)
-    df.to_csv(save_file, index= False)
+    files = [os.path.join(dirname,file) for file in os.listdir(dirname)][7:8]
+    df = load_data(files, threads=1, keep_cols=columns, sample_fraction=0.1)
+    #df.to_csv(save_file, index= False)
 
