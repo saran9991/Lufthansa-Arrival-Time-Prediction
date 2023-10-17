@@ -13,7 +13,7 @@ def update_progress(pbar):
     pbar.update(1)
     time.sleep(0.5)
 
-def get_h3_index(data, res):
+def get_h3_index(data, res, polygon = False):
     '''
     Adds H3 index and Hexagonal cell geometry column.
 
@@ -39,15 +39,16 @@ def get_h3_index(data, res):
         data = data[~(data.h3index == '0')]
         update_progress(pbar)
 
-        final = data.h3.h3_to_geo_boundary()
-        update_progress(pbar)
+        if(polygon):
+            data = data.h3.h3_to_geo_boundary()
+            update_progress(pbar)
 
-        final = final.rename(columns={'lat': 'latitude', 'lng': 'longitude'})
-        final.reset_index(inplace=True, drop=True)
+        data = data.rename(columns={'lat': 'latitude', 'lng': 'longitude'})
+        data.reset_index(inplace=True, drop=True)
         update_progress(pbar)
 
     logging.info('H3 Features Added')
-    return final
+    return data
 
 def plot_h3(df, save_html=False, file_name="map.html"):
     """
@@ -81,10 +82,10 @@ def add_density(data):
     Returns:
     - The DataFrame with added density columns for the past 10, 30, and 60 minutes.
     '''
-    data['timestamp'] = pd.to_datetime(data['timestamp'])
+    
     data = data.sort_values('timestamp').reset_index(drop=True)
+    data['timestamp'] = pd.to_datetime(data['timestamp'])
     df = data.copy()
-
 
     density_10_minutes_past = []
     density_30_minutes_past = []

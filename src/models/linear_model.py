@@ -5,6 +5,7 @@ from joblib import load
 
 import numpy as np
 from src.processing_utils.preprocessing import generate_aux_columns
+from src.processing_utils.h3_preprocessing import get_h3_index, add_density
 
 
 class LinearModel:
@@ -19,12 +20,17 @@ class LinearModel:
     def preprocess(self, features, features_to_scale=None):
         if features_to_scale is None:
             features_to_scale = self.cols_to_scale
-        if self.scaler == None:
-            self.scaler = StandardScaler()
-            self.scaler.fit(features[features_to_scale])
         X = features.copy()
         X = generate_aux_columns(X)
+        X = get_h3_index(X, 4)
+        X['flight_id'] = X.arrival_time # Temporary place-holder for flight_id
+        X = add_density(X)
+
+        if self.scaler == None:
+            self.scaler = StandardScaler()
+            self.scaler.fit(X[features_to_scale])
         X[features_to_scale] = self.scaler.transform(X[features_to_scale])
+
         if self.pol_degree > 1:
             poly = PolynomialFeatures(self.pol_degree, interaction_only=True, include_bias=False)
 

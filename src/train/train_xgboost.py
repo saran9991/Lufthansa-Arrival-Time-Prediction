@@ -6,10 +6,14 @@ from src.processing_utils.preprocessing import seconds_till_arrival
 from bayes_opt import BayesianOptimization
 from src.processing_utils.preprocessing import generate_aux_columns
 from src.processing_utils.h3_preprocessing import get_h3_index, add_density
+import os
 
 # Paths
 PATH_TRAIN_DATA = '../../data/train_data/training_data.csv'
 PATH_TEST_DATA = '../../data/test_data/test_data_2023_Jan-Mai.csv'
+PATH_MODEL = os.path.join("..", "..", "trained_models", "xgb_saved_model.model")
+PATH_PRE_PROCESSED_TRAIN_DATA = '../../data/pre_processed/train_data_xgb.csv'
+PATH_PRE_PROCESSED_TEST_DATA = '../../data/pre_processed/test_data_xgb.csv'
 
 FEATURES = [
     'distance', 'altitude', 'vertical_rate', 'groundspeed', 'holiday',
@@ -95,6 +99,11 @@ if __name__ == "__main__":
     print(f"R^2 Score: {r2}")
 
     best_params = tune_hyperparameters(X_train, y_train, X_test, y_test, TREE_METHOD)
+
+    #xgb_model.save_model(PATH_MODEL)
+    #print(f"XGBoost Model saved to {PATH_MODEL}")
+    #X_train.to_csv(PATH_PRE_PROCESSED_TRAIN_DATA)
+    #X_test.to_csv(PATH_PRE_PROCESSED_TEST_DATA)
 
     importances = xgb_model.feature_importance_()
     df = pd.DataFrame({'features': FEATURES, 'importances': importances})
