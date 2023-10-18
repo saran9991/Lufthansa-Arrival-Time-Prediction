@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from joblib import dump, load
 from tensorflow.keras import Sequential
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Input, LeakyReLU, Dropout, Dense
@@ -58,6 +59,7 @@ class VanillaNN():
             cols_to_scale: list = None,
             model_file: str = None,
             distance_relative: bool = False,
+            save_scaler_file: str = None,
             **network_params
     ):
         if model_file is None:
@@ -68,6 +70,7 @@ class VanillaNN():
 
         self.feature_columns = features
         self.scaler = scaler
+        self.scaler_file = save_scaler_file
         self.cols_to_scale = cols_to_scale
         self.distance_relative = distance_relative
 
@@ -75,6 +78,7 @@ class VanillaNN():
         if self.scaler is None:
             self.scaler = StandardScaler()
             self.scaler.fit(features[self.cols_to_scale])
+            dump(self.scaler, self.scaler_file)
         X = features.copy()
         X = generate_aux_columns(X)
         X[self.cols_to_scale] = self.scaler.transform(X[self.cols_to_scale])

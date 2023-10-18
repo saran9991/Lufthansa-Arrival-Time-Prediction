@@ -13,13 +13,10 @@ GROUNDSPEED_LANDING = 170
 
 
 def noise_remove(data):
-    data_shifted = data.shift(1)
-
     data['timestamp'] = pd.to_datetime(data['timestamp'])
-    data_shifted['timestamp'] = pd.to_datetime(data_shifted['timestamp'])
-
     data['timestamp'] = data['timestamp'].fillna(pd.NaT)
-    data_shifted['timestamp'] = data_shifted['timestamp'].fillna(pd.NaT)
+    data = data.sort_values(['flight_id', 'timestamp'])
+    data_shifted = data.shift(1)
 
     data['time_difference'] = (data['timestamp'] - data_shifted['timestamp']).dt.total_seconds()
     data['altitude_difference'] = data['altitude'] - data_shifted['altitude']

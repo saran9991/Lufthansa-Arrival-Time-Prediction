@@ -1,13 +1,16 @@
 import numpy as np
 import os
+from joblib import load as load_joblib
 from src.models.lstm import LSTMNN
 
 PATH_DATA = os.path.join("..", "..", "data", "processed")
-PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2022_train_far.npy")
-PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2022_val_far.npy")
-PATH_TEST_DATA = os.path.join(PATH_DATA, "timeseries_20sec_2023_train_far.npy")
+PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_train.npy")
+PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_test.npy")
+PATH_TEST_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_test.npy")
 PATH_MODEL = os.path.join("..", "..", "trained_models", "lstm_near_231003")
+scaler_path_std = os.path.join("../..", "trained_models", "std_scaler_100km_h3.bin")
 
+scaler = load_joblib(scaler_path_std)
 if __name__ == "__main__":
     # mmap_mode allows for operations on the np.-array prior to loading into memory. So we can create the
     # indices and only load the data into memory in the randomized manner. We directly load the data
@@ -26,7 +29,7 @@ if __name__ == "__main__":
     y_val = data_val[:, -1, -1]
     print("shape train", X_train.shape, "shape val", X_val.shape)
     n_features = X_train.shape[2]
-    model = LSTMNN(n_features=n_features)
+    model = LSTMNN(n_features=n_features, scaler=scaler, distance_relative=True)
 
     patience_early = 1
     patience_reduce = 1

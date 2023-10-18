@@ -16,7 +16,8 @@ def build_lstm(
         output_dims: int = 1,
         lstm_layers: tuple = (1024, 512),
         dense_layers: tuple = (512, 256, 128),
-        dropout_rate: float = 0.2,
+        dropout_rate_fc: float = 0.2,
+        dropout_rate_lstm: float = 0.2,
         activation: str = "softplus",
         loss: str = "MAE",
         masking_value: float = 0.0,  # Default masking_value set to 0.0; adjust as needed
@@ -34,13 +35,13 @@ def build_lstm(
             LSTM(
                 lstm_layers[i],
                 return_sequences=True,
-                #dropout=dropout_lstm,
+                dropout=dropout_rate_lstm,
                 #recurrent_dropout=dropout_lstm_recurrent
             ))
     model.add(LSTM(
         lstm_layers[-1],
         return_sequences=False,
-        #dropout=dropout_lstm,
+        dropout=dropout_rate_lstm,
         #recurrent_dropout=dropout_lstm_recurrent,
     ))  # Last LSTM layer with return_sequences=False
 
@@ -48,7 +49,7 @@ def build_lstm(
     for size in dense_layers:
         model.add(Dense(size))
         model.add(LeakyReLU(alpha=0.05))
-        model.add(Dropout(dropout_rate))
+        model.add(Dropout(dropout_rate_fc))
 
     model.add(Dense(output_dims, activation=activation))
 
@@ -77,13 +78,13 @@ def batch_generator(X, y, batchsize):
         yield X_batch, y_batch
 
 class LSTMNN():
-    def __init__(self, scaler, distance_relative=False, index_distance=1, model_file=None, **network_params):
+    def __init__(self, scaler=None, distance_relative=False, index_distance=1, model_file=None, **network_params):
         if model_file is None:
             self.model = build_lstm(**network_params)
         else:
             self.model = load_model(model_file)
-        self.distance_relative = True
-
+        self.distance_relative = distance_relative
+        self.index_distance = index_distance
         self.scaler = scaler
 
     def fit(
@@ -127,7 +128,7 @@ class LSTMNN():
 
         if self.distance_relative:
             inverser_scale = self.scaler.inverse_transform(X[:, -1, 0:5])
-            distances = inverser_scale[:, 0]
+            distances = inverser_scale[:, self.index_distance]
             predictions_relative = self.model.predict(X).flatten()
             predictions_absolute = predictions_relative * distances
             # Calculate and return both losses using the retrieved loss function
