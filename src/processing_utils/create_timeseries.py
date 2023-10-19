@@ -13,8 +13,8 @@ from src.processing_utils.preprocessing import generate_aux_columns, seconds_til
 
 data_path = os.path.join("../..", "data", "processed","training_data_2022_10sec_h3_no_dupl.csv")
 
-scaler_path_std = os.path.join("../..", "trained_models", "std_scaler_100km_h3.bin")
-scaler_path_minmax = os.path.join("../..", "trained_models", "minmax_scaler_100km_h3.bin")
+scaler_path_std = os.path.join("../..", "trained_models", "std_scaler_all_distances_h3.bin")
+scaler_path_minmax = os.path.join("../..", "trained_models", "minmax_scaler_all_distances_h3.bin")
 
 DROP_COLUMNS = [
     "flight_id",
@@ -101,12 +101,13 @@ def create_time_series_array(
 
 
 if __name__ == "__main__":
-    array_path_train = os.path.join("../..", "data", "processed", "timeseries_10sec_2022_100km_train.npy")
-    array_path_val = os.path.join("../..", "data", "processed", "timeseries_10sec_2022_100km_val.npy")
-    array_path_optim = os.path.join("../..", "data", "processed", "timeseries_10sec_2022_100km_optim.npy")
+    array_path_train = os.path.join("../..", "data", "processed", "timeseries_30sec_2022_all_distances_train.npy")
+    array_path_val = os.path.join("../..", "data", "processed", "timeseries_30sec_2022_all_distances_val.npy")
+    array_path_optim = os.path.join("../..", "data", "processed", "timeseries_30sec_2022_all_distances_optim.npy")
 
-    df = pd.read_csv(data_path, parse_dates=["arrival_time", "timestamp"])
-    df = df.loc[df.distance < 100]
+    df = pd.read_csv(data_path, parse_dates=["arrival_time", "timestamp"]).sort_values(by = ["flight_id", "timestamp"]).reset_index(drop=True)
+    df = df.iloc[::3]
+    #df = df.loc[df.distance < 100]
     print(df.shape)
     arrival_days = df['arrival_time'].dt.date.unique()
     # Split the unique days of arrival into train and test sets
@@ -147,14 +148,14 @@ if __name__ == "__main__":
     df = add_seconds_since_last_timestep(df)
     df["time_to_arrival"] = y.values
     print(df.columns)
-    time_series_array_val = create_time_series_array(df, n_steps, flight_ids_val, apply_padding=False, stride=20, stepsize=1)
+    time_series_array_val = create_time_series_array(df, n_steps, flight_ids_val, n_processes=6, apply_padding=False, stride=40, stepsize=1)
     print(time_series_array_val.shape)
     np.save(array_path_val, time_series_array_val)
-    time_series_array_optim = create_time_series_array(df, n_steps, flight_ids_optim, apply_padding=False, stride=20, stepsize=1)
+    time_series_array_optim = create_time_series_array(df, n_steps, flight_ids_optim, n_processes=6, apply_padding=False, stride=40, stepsize=1)
     print(time_series_array_optim.shape)
     np.save(array_path_optim, time_series_array_optim)
 
-    time_series_array_train = create_time_series_array(df, n_steps, flight_ids_train, apply_padding=False, stride=20, stepsize=1)
+    time_series_array_train = create_time_series_array(df, n_steps, flight_ids_train, n_processes=6, apply_padding=False, stride=40, stepsize=1)
     print(time_series_array_train.shape)
     np.save(array_path_train, time_series_array_train)
 

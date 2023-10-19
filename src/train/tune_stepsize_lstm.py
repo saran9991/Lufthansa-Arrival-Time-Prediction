@@ -11,14 +11,13 @@ from src.models.lstm import LSTMNN
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-PATH_DATA = os.path.join("..", "..", "data", "processed")
-PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_train.npy")
-PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_val.npy")
-PATH_OPTIMIZATION_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_optim.npy")
-PATH_STD_SCALER = os.path.join("../..", "trained_models", "std_scaler_100km_h3.bin")
+PATH_DATA = os.path.join("..", "..", "data", "final", "train")
 
-
-
+PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_train_clean.npy")
+PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_val_clean.npy")
+PATH_OPTIMIZATION_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_optim_clean.npy")
+PATH_STD_SCALER = os.path.join("..","..", "trained_models", "std_scaler_100km_h3.bin")
+print(PATH_VALIDATION_DATA)
 @contextmanager
 def tee_stdout_to_file(filename):
     original_stdout = sys.stdout
@@ -120,12 +119,12 @@ if __name__ == "__main__":
         dropout_rate_fc = dropout_rate_fc
         dropout_rate_lstm = dropout_rate_lstm
 
-        n_layers_fc = round(n_layers_fc)
-        n_layers_lstm = round(n_layers_lstm)
 
         layers_fc = (2**neurons_layer_1_fc, 2**neurons_layer_2_fc, 2**neurons_layer_3_fc)
+        print(layers_fc)
         layer_sizes_fc = tuple([round(layers_fc[i]) for i in range(round(n_layers_fc))])
         layers_lstm = (2**neurons_layer_1_lstm, 2**neurons_layer_2_lstm)
+        print(layers_lstm)
         layer_sizes_lstm = tuple([round(layers_lstm[i]) for i in range(round(n_layers_lstm))])
 
         patience_reduce = round(patience_reduce)
@@ -173,10 +172,10 @@ if __name__ == "__main__":
         pbounds=param_bounds,
         random_state=1,
     )
-    register_params(optimizer)
+    register_params(optimizer, "hyper_lstm_100km.txt")
     # Use the context manager to redirect output of this specific line
-    with tee_stdout_to_file('output_lstm_hyper_100km.txt'):
-        optimizer.maximize(init_points=5, n_iter=50)
+
+    optimizer.maximize(init_points=0, n_iter=41)
 
     # Access all results
     for i, res in enumerate(optimizer.res):
