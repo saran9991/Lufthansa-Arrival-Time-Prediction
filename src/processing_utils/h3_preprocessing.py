@@ -24,10 +24,13 @@ def get_h3_index(data, res, polygon = False):
     Returns:
     - final: The enhanced DataFrame with an added H3 index column and Hexagonal cell geometry column.
     '''
-
+    if (polygon):
+        total = 6
+    else:
+        total = 5
     logging.info("Starting H3 preprocessing...")
     data = data.copy()
-    with tqdm(total=5, desc="Processing", dynamic_ncols=True) as pbar:
+    with tqdm(total=total, desc="Processing", dynamic_ncols=True) as pbar:
         data.rename(columns={'latitude': 'lat', 'longitude': 'lng'}, inplace=True)
         update_progress(pbar)
 
