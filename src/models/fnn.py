@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from joblib import dump, load
 from tensorflow.keras import Sequential
 from tensorflow.keras.models import load_model
@@ -8,8 +8,11 @@ from tensorflow.keras.layers import Input, LeakyReLU, Dropout, Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, Callback
 from tensorflow.keras.losses import get as get_loss
+import tensorflow as tf
 from src.processing_utils.preprocessing import generate_aux_columns
 
+gpus = tf.config.list_physical_devices('GPU')
+print("Number of GPUs available:", len(gpus))
 
 def build_sequential(
         lr: float = 0.001,
@@ -55,11 +58,14 @@ class VanillaNN():
     def __init__(
             self,
             features: list,
-            scaler=None,
-            cols_to_scale: list = None,
+            std_scaler=None,
+            minmax_scaler=None,
+            cols_to_scale_std: list = None,
+            cols_to_scale_minmax: list = None,
             model_file: str = None,
             distance_relative: bool = False,
-            save_scaler_file: str = None,
+            save_std_scaler_file: str = None,
+            save_minmax_scaler_file: str = None,
             **network_params
     ):
         if model_file is None:
@@ -69,19 +75,27 @@ class VanillaNN():
             self.model = load_model(model_file)
 
         self.feature_columns = features
-        self.scaler = scaler
-        self.scaler_file = save_scaler_file
-        self.cols_to_scale = cols_to_scale
+        self.std_scaler = std_scaler
+        self.minmax_scaler = minmax_scaler
+        self.std_scaler_file = save_std_scaler_file
+        self.minmax_scaler_file = save_minmax_scaler_file
+        self.cols_to_scale_std = cols_to_scale_std
+        self.cols_to_scale_minmax = cols_to_scale_minmax
         self.distance_relative = distance_relative
 
     def preprocess(self, features):
-        if self.scaler is None:
-            self.scaler = StandardScaler()
-            self.scaler.fit(features[self.cols_to_scale])
-            dump(self.scaler, self.scaler_file)
+        if self.std_scaler is None:
+            self.std_scaler = StandardScaler()
+            self.std_scaler.fit(features[self.cols_to_scale_std])
+            dump(self.std_scaler, self.std_scaler_file)
+        if self.minmax_scaler is None:
+            self.minmax_scaler= MinMaxScaler()
+            self.minmax_scaler.fit(features[self.cols_to_scale_minmax])
+            dump(self.minmax_scaler, self.minmax_scaler_file)
         X = features.copy()
         X = generate_aux_columns(X)
-        X[self.cols_to_scale] = self.scaler.transform(X[self.cols_to_scale])
+        X[self.cols_to_scale_std] = self.std_scaler.transform(X[self.cols_to_scale_std])
+        X[self.cols_to_scale_minmax] = self.minmax_scaler.transform(X[self.cols_to_scale_minmax])
         return X[self.feature_columns]
 
     def fit(
@@ -152,10 +166,10 @@ class VanillaNN():
 
         # If no preprocessing is required but predictions should be relative to distance
         elif not preprocess and self.distance_relative:
-            X_unscaled = self.scaler.inverse_transform(X[self.cols_to_scale])
+            X_unscaled = self.std_scaler.inverse_transform(X[self.cols_to_scale_std])
 
             if isinstance(X, pd.DataFrame):
-                distances = X_unscaled[:, self.cols_to_scale.index("distance")]
+                distances = X_unscaled[:, self.cols_to_scale_std.index("distance")]
             else:
                 distances = X_unscaled[:, index_distance]
 

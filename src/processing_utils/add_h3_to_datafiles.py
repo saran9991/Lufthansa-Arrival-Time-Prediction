@@ -15,7 +15,8 @@ if __name__ == "__main__":
        dfs.append(df)
 
    df_concat = pd.concat(dfs, ignore_index=True)
-   df_concat.to_csv(os.path.join(dirname, "training_data_2022_10sec.csv"))
+   df_concat = df_concat.drop_duplicates().reset_index(drop=True)
+   df_concat.to_csv(os.path.join(dirname, "training_data_2023_10sec_low_dense_removed.csv"))
    df_concat = get_h3_index(df_concat, 4)
    df_concat = add_density(df_concat)
-   df_concat.to_csv(os.path.join(dirname, "training_data_2022_10sec_h3.csv"), index=False)
+   df_concat.to_csv(os.path.join(dirname, "training_data_2023_10sec_h3.csv"), index=False)

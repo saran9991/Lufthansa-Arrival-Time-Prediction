@@ -19,10 +19,7 @@ def load_data_batch(
         remove_noise=True,
         quick_sample=False, # for testing purposes when we only want to load one day,
         distance_range=None,
-        ids=None,
         keep_cols=None,
-        h3_density=False,
-        h3_res=4,
 ):
     # if random false, every 1/sample_fraction row
     first_day = True
@@ -31,7 +28,8 @@ def load_data_batch(
     # for the first flight in the batch, we need the previous day also, which is not in the batch
     # check if the current file is the very last in the dir
     directory = os.path.dirname(file_batch[0])
-    files_in_dir = os.listdir(directory)
+    files_in_dir = sorted(os.listdir(directory))
+    file_batch = sorted(file_batch)
     df_created = False
     if os.path.basename(file_batch[0]) != files_in_dir[0]:
         index_current = files_in_dir.index(os.path.basename(file_batch[0]))
@@ -41,37 +39,29 @@ def load_data_batch(
             key = keys[-1]
 
             new_flights = Traffic.from_file(file, key=key,
-                                            parse_dates=["day", "firstseen", "hour", "last_position",
-                                                         "lastseen", "timestamp"]).data
-            if new_flights.shape[0] > 0:
-                new_flights["flight_id"] = new_flights["callsign"] + "_" + new_flights['firstseen'].astype(str)
+                                            parse_dates=["day", "firstseen", "hour", "last_position", "lastseen", "timestamp"]).data
 
-            if ids:
-                new_flights = new_flights.loc[new_flights.flight_id.isin(ids)]
-            if new_flights.shape[0] > 0:
-                first_day = False
-                old_flights = new_flights
+
+            new_flights["flight_id"] = new_flights["callsign"] + "_" + new_flights['firstseen'].astype(str)
+            first_day = False
+            old_flights = new_flights
 
     for file in file_batch:
         with h5py.File(file, 'r') as f:
             if quick_sample:
                 i = 0
             for key in tqdm(list(f.keys()),desc=file):
+                if key == "LH_220313":
+                    print("attention")
                 if quick_sample:
                     if i > 0:
                         continue
                 new_flights = Traffic.from_file(file, key=key,
                                                 parse_dates=["day", "firstseen", "hour", "last_position",
                                                              "lastseen", "timestamp"]).data
-                if new_flights.shape[0] < 1:
-                    continue
 
                 new_flights["flight_id"] = new_flights["callsign"] + "_" + new_flights['firstseen'].astype(str)
 
-                if ids:
-                    new_flights = new_flights.loc[new_flights.flight_id.isin(ids)]
-                    if new_flights.shape[0] < 1:
-                        continue
                 if first_day:
                     old_flights = new_flights.copy()
                     df_flights = preprocess_traffic(new_flights, remove_noise=remove_noise).sort_values(['flight_id', 'timestamp'])
@@ -84,14 +74,14 @@ def load_data_batch(
                         df_flights = df_flights.sample(frac=sample_fraction)
                     else:
                         df_flights = df_flights.iloc[::nthrows, :]
+                    filename = key + ".csv"
+                    save_file = os.path.join("..", "..", "data", "processed", "10seconds", filename)
+                    df_flights.to_csv(save_file, index=False)
                     first_day = False
 
                 else:
                     old_flights = pd.concat([old_flights,new_flights])
-                    min_date = new_flights.day.min()
 
-                    if pd.isna(min_date):
-                        print("Warning: Minimum date is NaT!")
                     start = new_flights.day.min().replace(tzinfo=None)
                     end = start + datetime.timedelta(days=1)
                     relevant_time = [str(start), str(end)]
@@ -132,10 +122,8 @@ def load_data(
         remove_noise: bool = True,
         quick_sample: bool = False,
         distance_range=None,
-        ids=None,
         keep_cols=None,
-        h3_density=False,
-        h3_res=4,
+
 ) -> None:
 
     if len(flight_files) < threads:
@@ -158,7 +146,6 @@ def load_data(
                 remove_noise,
                 quick_sample,
                 distance_range,
-                ids,
                 keep_cols,
             )
         )
@@ -185,11 +172,12 @@ if __name__ == "__main__":
         "latitude",
         "longitude",
     ]
-    FILENAME = "training_data_2022_10sec.csv"
+    FILENAME = "training_data_2023_10sec.csv"
     queue = Queue()
     dirname = os.path.join("..", "..", "data", "raw")
     save_file = os.path.join("..", "..", "data", "processed", FILENAME)
-    files = [os.path.join(dirname,file) for file in os.listdir(dirname)][7:8]
-    df = load_data(files, threads=1, keep_cols=columns, sample_fraction=0.1)
-    #df.to_csv(save_file, index= False)
+    files = sorted([os.path.join(dirname,file) for file in os.listdir(dirname)][1:-1])
+    df = load_data(files, threads=4, keep_cols=columns, sample_fraction=0.1)
+    df = df.drop_duplicates().reset_index(drop=True)
+    df.to_csv(save_file, index=False)
 
