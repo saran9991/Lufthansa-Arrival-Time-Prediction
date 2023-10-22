@@ -19,14 +19,13 @@ FEATURES = [
     'distance', 'altitude', 'vertical_rate', 'groundspeed', 'holiday',
     'sec_sin', 'sec_cos', 'day_sin', 'day_cos', 'bearing_sin', 'bearing_cos',
     'track_sin', 'track_cos', 'latitude_rad', 'longitude_rad',
-    'weekday_1', 'weekday_2', 'weekday_3', 'weekday_4', 'weekday_5', 'weekday_6',
-    'density_10_minutes_past', 'density_30_minutes_past', 'density_60_minutes_past'
+    'weekday_1', 'weekday_2', 'weekday_3', 'weekday_4', 'weekday_5', 'weekday_6'
 ]
 
 N_ESTIMATORS = 500
 MAX_DEPTH = 6
 TREE_METHOD ="gpu_hist"
-
+EPSILON = 1e-6
 
 def preprocess_xgb(data: pd.DataFrame, feature_columns) -> pd.DataFrame:
     data = data.copy()
@@ -51,7 +50,7 @@ def tune_hyperparameters(X_train, y_train, X_test, y_test, tree_method):
                              tree_method=tree_method)
         xgb_model.fit(X_train, y_train)
 
-        mae, _ = xgb_model.evaluate(X_test, y_test)
+        mae, mae_relative, _ = xgb_model.evaluate(X_test, y_test)
         return -mae
 
     bounds = {
@@ -81,24 +80,25 @@ if __name__ == "__main__":
 
     print('Reading Training DataFrame...')
     X_train = pd.read_csv(PATH_TRAIN_DATA, parse_dates=["arrival_time", "timestamp"]).reset_index(drop=True)
-    y_train = seconds_till_arrival(X_train)
+    y_train = seconds_till_arrival(X_train) / (X_train['distance'] + EPSILON)
     X_train['flight_id'] = X_train.arrival_time
     X_train = preprocess_xgb(X_train, FEATURES)
 
     print('Reading Testing DataFrame...')
     X_test = pd.read_csv(PATH_TEST_DATA, parse_dates=["arrival_time", "timestamp"]).reset_index(drop=True)
-    y_test = seconds_till_arrival(X_test)
+    y_test = seconds_till_arrival(X_test) / (X_test['distance'] + EPSILON)
     X_test['flight_id'] = X_test.arrival_time
     X_test = preprocess_xgb(X_test, FEATURES)
 
     xgb_model = XGBModel(n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, tree_method = TREE_METHOD)
     xgb_model.fit(X_train, y_train)
 
-    mae, r2 = xgb_model.evaluate(X_test, y_test)
+    mae, mae_relative, r2 = xgb_model.evaluate(X_test, y_test)
     print(f"Mean Absolute Error: {mae}")
+    print(f"Relative Mean Absolute Error: {mae_relative}")
     print(f"R^2 Score: {r2}")
 
-    best_params = tune_hyperparameters(X_train, y_train, X_test, y_test, TREE_METHOD)
+    #best_params = tune_hyperparameters(X_train, y_train, X_test, y_test, TREE_METHOD) #Bayesian Optimization
 
     #xgb_model.save_model(PATH_MODEL)
     #print(f"XGBoost Model saved to {PATH_MODEL}")

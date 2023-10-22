@@ -55,29 +55,39 @@ def plot_origin_density(data):
 def plot_flight_times_average(data):
     df = data[data['groundspeed'] >= 170]
 
-    df_grouped = df.groupby('flight_id')['timestamp'].agg(['min', 'max'])
-    df_grouped['travel_time'] = (df_grouped['max'] - df_grouped['min']).dt.total_seconds() / 60
+    df_grouped = df.groupby('flight_id').agg({'timestamp': ['min', 'max'], 'origin': 'first'}).reset_index()
+    df_grouped.columns = ['flight_id', 'min_timestamp', 'max_timestamp', 'origin']
+    df_grouped['travel_time'] = (df_grouped['max_timestamp'] - df_grouped['min_timestamp']).dt.total_seconds() / 60
 
     avg_travel_time = df_grouped['travel_time'].mean()
     median_travel_time = df_grouped['travel_time'].median()
 
     plt.figure(figsize=(12, 8))
     sns.histplot(df_grouped['travel_time'], bins=50, kde=True, color='salmon', edgecolor='k', linewidth=0.5)
+
+    top_flights = df_grouped.nlargest(5, 'travel_time')
+    for index, row in top_flights.iterrows():
+        plt.annotate(row['origin'], (row['travel_time'], 0), textcoords="offset points",
+                     xytext=(0, 10), ha='center', fontsize=9)
+
     plt.title('Travel Times of Lufthansa Flights Landing in Frankfurt (2022)', fontsize=20, pad=20)
     plt.xlabel('Travel Time (minutes)', fontsize=15)
     plt.ylabel('Frequency', fontsize=15)
     plt.grid(True, linestyle='--', alpha=0.7)
 
     plt.axvline(x=avg_travel_time, color='darkcyan', linestyle='--')
-    plt.text(avg_travel_time+5, max(plt.ylim())*0.9, f'Average: {avg_travel_time:.2f} mins', color='darkcyan', fontsize=12)
+    plt.text(avg_travel_time + 5, max(plt.ylim()) * 0.9, f'Average: {avg_travel_time:.2f} mins', color='darkcyan',
+             fontsize=12)
     plt.axvline(x=median_travel_time, color='#DAA520', linestyle='--')
-    plt.text(median_travel_time+5, max(plt.ylim())*0.8, f'Median: {median_travel_time:.2f} mins', color='#DAA520', fontsize=12)
+    plt.text(median_travel_time + 5, max(plt.ylim()) * 0.8, f'Median: {median_travel_time:.2f} mins', color='#DAA520',
+             fontsize=12)
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
 
-    plt.savefig(r'C:\Users\saran\Desktop\Plots\beautiful_travel_times.png')
+    plt.savefig(r'C:\Users\saran\Desktop\Plots\annotated_travel_times.png')
 
     plt.show()
+
 
 def plot_busy_hours(data):
     data['timestamp'] = data['timestamp'].dt.tz_convert('Europe/Berlin')
@@ -110,7 +120,7 @@ def plot_gs_alt_100_FRA(data):
     filtered_df['distance_bin'] = np.digitize(filtered_df['distance_FRA'], bins)
     avg_data = filtered_df.groupby('distance_bin')[['altitude', 'groundspeed']].mean()
 
-    plt.figure(figsize=(16, 9))
+    plt.figure(figsize=(20, 6))
     sns.set_style("whitegrid")
 
     ax1 = plt.gca()
@@ -154,6 +164,39 @@ def plot_gs_alt_100_FRA(data):
     plt.show()
 
 
+def plot_heatmap_near_FRA(data, feature='altitude'):
+    data = data.dropna()
+    FRA_COORDINATES = (50.110924, 8.682127)
+
+    def calculate_distance(row):
+        return geodesic(FRA_COORDINATES, (row['latitude'], row['longitude'])).km
+
+    data['distance_FRA'] = data.apply(calculate_distance, axis=1)
+
+    filtered_df = data[data['distance_FRA'] <= 200]
+    heatmap_data, xedges, yedges = np.histogram2d(filtered_df['longitude'], filtered_df['latitude'],
+                                                  weights=filtered_df[feature],
+                                                  bins=50)
+
+    counts, _, _ = np.histogram2d(filtered_df['longitude'], filtered_df['latitude'], bins=50)
+    heatmap_data /= (counts + 1e-10)  # avoid division by zero
+
+    plt.figure(figsize=(12, 8))
+    cmap = 'jet' if feature == 'altitude' else 'viridis'  # Different color schemes for altitude and groundspeed
+    plt.imshow(heatmap_data.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], aspect='auto',
+               cmap=cmap, interpolation='gaussian')
+
+    cbar = plt.colorbar()
+    cbar.set_label(f'Average {feature.capitalize()}', rotation=270, labelpad=15)
+
+    plt.title(f'Heatmap of Average {feature.capitalize()} near Frankfurt Airport', pad=20)
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+
+    plt.savefig(r'C:\Users\saran\Desktop\Plots\heatmap_avg_' + feature + '.png', bbox_inches='tight')
+    plt.show()
+
+
 if __name__ == "__main__":
     total_rows = sum(1 for line in open(PATH_DATA)) - 1
     pbar = tqdm(total=total_rows)
@@ -171,4 +214,6 @@ if __name__ == "__main__":
     data = preprocess_plot_data(data)   # Preprocessing
     plot_flight_times_average(data)     # Plot : Average/Median Flight Times
     plot_busy_hours(data)               # Plot : Busy hours
-    plot_gs_alt_100_FRA(data)           # Plot : Density Near Frankfurt
+    #plot_gs_alt_100_FRA(data)           # Plot : Density Near Frankfurt
+    plot_heatmap_near_FRA(data, feature='altitude')  # Change feature to 'groundspeed' for groundspeed heatmap
+    plot_heatmap_near_FRA(data, feature='groundspeed')  # Change feature to 'groundspeed' for groundspeed heatmap
