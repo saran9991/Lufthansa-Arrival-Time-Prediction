@@ -37,7 +37,7 @@ def preprocess_xgb(data: pd.DataFrame, feature_columns) -> pd.DataFrame:
 
 
 def tune_hyperparameters(X_train, y_train, X_test, y_test, tree_method):
-    def optimize_xgb(n_estimators, max_depth, learning_rate, gamma, subsample, colsample_bytree):
+    def optimize_xgb(n_estimators, max_depth, learning_rate, gamma, subsample, colsample_bytree, reg_alpha):
         n_estimators = int(n_estimators)
         max_depth = int(max_depth)
 
@@ -47,25 +47,30 @@ def tune_hyperparameters(X_train, y_train, X_test, y_test, tree_method):
                              gamma=gamma,
                              subsample=subsample,
                              colsample_bytree=colsample_bytree,
+                             reg_alpha=reg_alpha,
                              tree_method=tree_method)
         xgb_model.fit(X_train, y_train)
 
+        # Evaluate the model on the test set
         mae, mae_relative, _ = xgb_model.evaluate(X_test, y_test)
-        return -mae
+        return -mae  # Objective is to minimize MAE, hence return negative MAE
 
+    # Search space
     bounds = {
         'n_estimators': (100, 2000),
         'max_depth': (3, 15),
         'learning_rate': (0.01, 0.5),
         'gamma': (0, 5),
         'subsample': (0.5, 1),
-        'colsample_bytree': (0.5, 1)
+        'colsample_bytree': (0.5, 1),
+        'reg_alpha': (10000, 50000)
     }
 
+    # Configure the optimizer with the function and parameter bounds
     optimizer = BayesianOptimization(f=optimize_xgb, pbounds=bounds, random_state=1)
-    optimizer.maximize(init_points=10,
-                       n_iter=100)
+    optimizer.maximize(init_points=100, n_iter=1000)
 
+    # Extract the best parameters and their corresponding MAE
     best_params = optimizer.max['params']
     best_params['n_estimators'] = int(best_params['n_estimators'])
     best_params['max_depth'] = int(best_params['max_depth'])
@@ -98,7 +103,7 @@ if __name__ == "__main__":
     print(f"Relative Mean Absolute Error: {mae_relative}")
     print(f"R^2 Score: {r2}")
 
-    #best_params = tune_hyperparameters(X_train, y_train, X_test, y_test, TREE_METHOD) #Bayesian Optimization
+    best_params = tune_hyperparameters(X_train, y_train, X_test, y_test, TREE_METHOD) #Bayesian Optimization
 
     #xgb_model.save_model(PATH_MODEL)
     #print(f"XGBoost Model saved to {PATH_MODEL}")
