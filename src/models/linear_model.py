@@ -1,35 +1,49 @@
-from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, r2_score
 from joblib import load
 
 import numpy as np
 from src.processing_utils.preprocessing import generate_aux_columns
-from src.processing_utils.h3_preprocessing import get_h3_index, add_density
 
 
 class LinearModel:
-    def __init__(self, features, pol_degree=1, model_file=None, scaler=None, pol_only=True, cols_to_scale=None):
+    def __init__(
+            self,
+            features,
+            pol_degree=1,
+            model_file=None,
+            std_scaler=None,
+            minmax_scaler=None,
+            pol_only=True,
+            cols_to_scale_std=None,
+            cols_to_scale_minmax=None
+    ):
         self.feature_columns = features
         self.pol_degree = pol_degree
-        self.scaler = scaler
+        self.std_scaler = std_scaler
+        self.minmax_scaler = minmax_scaler
         self.model = LinearRegression() if model_file is None else load(model_file)
         self.pol_only = pol_only
-        self.cols_to_scale = cols_to_scale
+        self.cols_to_scale_std = cols_to_scale_std
+        self.cols_to_scale_minmax = cols_to_scale_minmax
 
-    def preprocess(self, features, features_to_scale=None):
-        if features_to_scale is None:
-            features_to_scale = self.cols_to_scale
+    def preprocess(self, features, features_to_scale_std=None, features_to_scale_minmax=None):
+        if features_to_scale_std is None:
+            features_to_scale_std = self.cols_to_scale_std
+        if features_to_scale_minmax is None:
+            features_to_scale_minmax = self.cols_to_scale_minmax
         X = features.copy()
         X = generate_aux_columns(X)
-        X = get_h3_index(X, 4)
-        X['flight_id'] = X.arrival_time # Temporary place-holder for flight_id
-        X = add_density(X)
 
-        if self.scaler == None:
-            self.scaler = StandardScaler()
-            self.scaler.fit(X[features_to_scale])
-        X[features_to_scale] = self.scaler.transform(X[features_to_scale])
+        if self.std_scaler == None:
+            self.std_scaler = StandardScaler()
+            self.std_scaler.fit(X[features_to_scale_std])
+        if self.minmax_scaler == None:
+            self.minmax_scaler = MinMaxScaler()
+            self.minmax_scaler.fit(X[features_to_scale_minmax])
+        X[features_to_scale_std] = self.std_scaler.transform(X[features_to_scale_std])
+        X[features_to_scale_minmax] = self.minmax_scaler.transform(X[features_to_scale_minmax])
 
         if self.pol_degree > 1:
             poly = PolynomialFeatures(self.pol_degree, interaction_only=True, include_bias=False)
@@ -58,7 +72,11 @@ class LinearModel:
 
     def predict(self, X, preprocess=True):
         if preprocess:
-            X_pred = self.preprocess(X, self.cols_to_scale)
+            X_pred = self.preprocess(
+                X,
+                features_to_scale_std=self.cols_to_scale_std,
+                features_to_scale_minmax=self.cols_to_scale_minmax,
+            )
             return self.model.predict(X_pred)
         else:
             return self.model.predict(X)
