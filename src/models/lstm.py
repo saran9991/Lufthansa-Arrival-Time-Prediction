@@ -1,4 +1,6 @@
+import matplotlib.pyplot as plt
 import numpy as np
+import shap
 from tensorflow.keras import Sequential
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Input, LeakyReLU, Dropout, Dense, LSTM
@@ -97,6 +99,7 @@ class LSTMNN():
             patience_reduce=3,
             reduce_factor=0.7,
             batch_size=32,
+            max_epochs = 20,
     ):
         early_stopping = EarlyStopping(
             monitor="val_loss",
@@ -116,7 +119,7 @@ class LSTMNN():
             max_queue_size=2000,
             validation_data=(X_val, y_val),
             callbacks=[early_stopping, reduce_lr],
-            epochs=2000,
+            epochs=max_epochs,
             steps_per_epoch=X_train.shape[0] // batch_size,
         )
 
@@ -143,3 +146,37 @@ class LSTMNN():
         print(f"Evaluation Result:\n"
               f" - Loss: {loss:.4f}\n")
         return loss, None
+
+    def get_shap(self, arr_train, arr_test, FEATURES, file= "shap_plot.png", title="Feature Importance"):
+        """
+        Compute and plot SHAP values for a given trained model and datasets.
+
+        Parameters:
+        - df_train (pd.DataFrame): The processed training dataset. Should only contain features used for model training.
+        - df_test (pd.DataFrame): The processed testing dataset. Should only contain features used for model training.
+        - model (trained model): The trained machine learning model. It should be already trained.
+        - FEATURES (list): List of feature names.
+
+        Note: Ensure the input datasets (df_train and df_test) are already processed and the model is trained.
+        """
+
+        explainer = shap. DeepExplainer(self.model, arr_train)
+        shap_values = explainer(arr_test)
+
+        shap.summary_plot(shap_values, arr_test, feature_names=FEATURES, show=False)
+        ax = plt.gca()  # Get current axis
+        ax.set_xlabel("Mean Absolute Shap Value")
+        # Remove any legends
+        if ax.get_legend():
+            ax.get_legend().remove()
+        bars = ax.patches  # Get the bars from the axis
+
+        # Modify the color of each bar
+        for bar in bars:
+            bar.set_facecolor("#76C1C1")
+        # Clear x-axis label if it has the unwanted "class" text
+        if "class" in ax.get_xlabel():
+            ax.set_xlabel('')
+        # Save the plot
+        plt.savefig(file, bbox_inches='tight', dpi=300)
+        plt.close()  # Optional: close the figure after saving
