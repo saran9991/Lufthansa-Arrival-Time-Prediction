@@ -17,8 +17,25 @@ from src.processing_utils.preprocessing import generate_aux_columns
 gpus = tf.config.list_physical_devices('GPU')
 print("Number of GPUs available:", len(gpus))
 
-def build_sequ
 
+def build_sequential(
+        lr: float = 0.001,
+        input_dims: tuple = (21,),
+        output_dims: int = 1,
+        layer_sizes: tuple = (1024, 512, 256),
+        dropout_rate: float = 0.2,
+        activation: str = "softplus",
+        loss: str = "MAE",
+):
+    model = Sequential()
+    model.add(Input(shape=input_dims))
+    for size in layer_sizes:
+        model.add(Dense(size))
+        model.add(LeakyReLU(alpha=0.05))
+        model.add(Dropout(dropout_rate))
+    model.add(Dense(output_dims, activation=activation))
+    model.compile(optimizer=Adam(learning_rate=lr), loss=loss)
+    return model
 
 def batch_generator(X, y, batchsize):
     size = X.shape[0]
