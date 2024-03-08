@@ -65,13 +65,13 @@ COLS_TO_SCALE = ["distance", "altitude", "geoaltitude", "vertical_rate", "ground
 
 param_bounds = {
     "lr_start": (-10, -4),  # take exp
-    "batch_size": (5, 7),  # exp base two
+    "batch_size": (5, 8),  # exp base two
     "dropout_rate": (0.05, 0.6),
     "n_layers": (0.51, 3.49),  # Example range, adjust as per requirement
     "neurons_layer_1": (7, 12),  # exp base two
     "neurons_layer_2": (7, 12),
     "neurons_layer_3": (7, 12),
-    "patience_reduce": (0.51, 5.49),
+    #"patience_reduce": (0.51, 5.49),
 }
 
 def register_params(optimizer, text_file= "optimization vanilla.txt"):
@@ -116,14 +116,14 @@ if __name__ == "__main__":
             neurons_layer_1,
             neurons_layer_2,
             neurons_layer_3,
-            patience_reduce
+            #patience_reduce
     ):
         lr_start = math.exp(lr_start)
         batch_size = round(2**batch_size)
         layers = (2**neurons_layer_1, 2**neurons_layer_2, 2**neurons_layer_3)
         print(layers)
         layer_sizes = tuple([round(layers[i]) for i in range(round(n_layers))])
-        patience_reduce = round(patience_reduce)
+        patience_reduce = 2
         patience_early = patience_reduce + 1
         unique_flight_ids = df_flights['flight_id'].unique()
 
@@ -180,7 +180,8 @@ if __name__ == "__main__":
             y_val,
             batch_size=round(batch_size),
             patience_early=patience_early,
-            patience_reduce=patience_reduce
+            patience_reduce=patience_reduce,
+            max_epochs=25
         )
         loss = model.evaluate(X_test, y_test)
         return -loss[0]

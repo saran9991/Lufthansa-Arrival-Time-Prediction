@@ -13,10 +13,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 PATH_DATA = os.path.join("..", "..", "data", "final", "train")
 
-PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_30sec_2022_all_distances_train_clean.npy")
-PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_30sec_2022_all_distances_val_clean.npy")
-PATH_OPTIMIZATION_DATA = os.path.join(PATH_DATA, "timeseries_30sec_2022_all_distances_optim_clean.npy")
-PATH_STD_SCALER = os.path.join("..", "..", "trained_models", "scalers", "std_scaler_all_distances.bin")
+PATH_TRAINING_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_train_clean.npy")
+PATH_VALIDATION_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_val_clean.npy")
+PATH_OPTIMIZATION_DATA = os.path.join(PATH_DATA, "timeseries_10sec_2022_100km_optim_clean.npy")
+PATH_STD_SCALER = os.path.join("..", "..", "trained_models", "scalers", "std_scaler_100km.bin")
 print(PATH_VALIDATION_DATA)
 @contextmanager
 def tee_stdout_to_file(filename):
@@ -47,19 +47,26 @@ def register_params(optimizer, text_file= "output.txt"):
         for line in file:
             if pattern.search(line):
                 try:
-                    values = [float(val.strip()) for val in line.split("|")[1:7]]
-                    print(values)
+                    values = [float(val.strip()) for val in line.split("|")[1:15]]
                     target = values[1]
                     params = {
-                        "dropout_lstm": values[2],
-                        "n_layers_lstm": values[3],
-                        "neurons_layer_1_lstm": values[4],  # exp base two
-                        "neurons_layer_2_lstm": values[5],
-
+                        "lr_start": values[2],
+                        "batch_size": values[3],
+                        "dropout_rate_fc": values[4],
+                        "dropout_rate_lstm": values[5],
+                        "n_layers_fc": values[6],
+                        "n_layers_lstm": values[7],
+                        "neurons_layer_1_fc": values[8],
+                        "neurons_layer_2_fc": values[9],
+                        "neurons_layer_3_fc": values[10],
+                        "neurons_layer_1_lstm": values[11],
+                        "neurons_layer_2_lstm": values[12],
+                        "patience_reduce": values[13],
                     }
                     optimizer.register(params=params, target=target)
                 except ValueError as e:
                     print(f"Skipping line due to error: {e}")
+
 
     for i, res in enumerate(optimizer.res):
         print("Iteration {}: \n\t{}".format(i, res))
@@ -91,13 +98,13 @@ if __name__ == "__main__":
         neurons_layer_2_lstm,
         dropout_lstm,
     ):
-        lr_start = 0.0001
-        batch_size = 256
+        lr_start = 0.000045
+        batch_size = 298
 
         dropout_rate_fc = 0.2
 
 
-        layer_sizes_fc = (3492, 3666)
+        layer_sizes_fc = (1425, 4096, 588)
         layers_lstm = (2**neurons_layer_1_lstm, 2**neurons_layer_2_lstm)
         print(layers_lstm)
         layer_sizes_lstm = tuple([round(layers_lstm[i]) for i in range(round(n_layers_lstm))])
@@ -146,11 +153,10 @@ if __name__ == "__main__":
         pbounds=param_bounds,
         random_state=1,
     )
-
-    register_params(optimizer, "/tmp/pycharm_project_522/src/train/hyper_lstm_full_dist_new")
+    #register_params(optimizer, "hyper_lstm_100km.txt")
     # Use the context manager to redirect output of this specific line
 
-    optimizer.maximize(init_points=0, n_iter=35)
+    optimizer.maximize(init_points=5, n_iter=40)
 
     # Access all results
     for i, res in enumerate(optimizer.res):
