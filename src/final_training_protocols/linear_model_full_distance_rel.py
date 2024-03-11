@@ -40,8 +40,8 @@ if __name__ == "__main__":
     best_mae = 10000
     df_train = pd.read_csv(FILE_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])
     df_test = pd.read_csv(FILE_TEST_DATA, parse_dates=["arrival_time", "timestamp"])
-    y_train = seconds_till_arrival(df_train)
-    y_test = seconds_till_arrival(df_test)
+    y_train = seconds_till_arrival(df_train)/df_train.distance
+    y_test = seconds_till_arrival(df_test)//df_test.distance
     for i in range(1, 20):
         degrees = i
         model = LinearModel(
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         else:
             break
 
-    model_file = os.path.join(PATH_MODEL, "polynomial_regression_all_dist_" + str(degrees -1) + ".sav")
+    model_file = os.path.join(PATH_MODEL, "polynomial_regression_all_dist_rel" + str(degrees -1) + ".sav")
     dump(best_model, model_file)
     """
     doesn't work yet for some reason

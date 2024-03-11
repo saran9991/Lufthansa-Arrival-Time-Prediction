@@ -11,12 +11,13 @@ from src.processing_utils.preprocessing import seconds_till_arrival
 DIR_TRAINING_DATA = os.path.join("..", "..", "data", "final", "train")
 DIR_TEST_DATA = os.path.join("..", "..", "data", "final", "test")
 
-FILE_TRAINING_DATA = os.path.join(DIR_TRAINING_DATA,"training_data_whole.csv")
-FILE_TEST_DATA = os.path.join(DIR_TEST_DATA,"testdata_2023_comparable.csv")
+FILE_TRAINING_DATA = os.path.join(DIR_TRAINING_DATA,"training_data_2022_100km.csv")
+FILE_TEST_DATA = os.path.join(DIR_TEST_DATA,"testdata_2023_100km_comparable.csv")
 
-PATH_STD_SCALER = os.path.join("..", "..", "trained_models", "scalers", "std_scaler_all_distances.bin")
-PATH_MINMAX_SCALER = os.path.join("..", "..", "trained_models", "scalers", "minmax_scaler_all_distances_h3.bin")
+PATH_STD_SCALER = os.path.join("..", "..", "trained_models", "scalers", "std_scaler_100km.bin")
+PATH_MINMAX_SCALER = os.path.join("..", "..", "trained_models", "scalers", "minmax_scaler_100km_h3.bin")
 PATH_MODEL =os.path.join("..", "..", "trained_models", "best_models")
+PATH_LOG_FILE = os.path.join("..", "..", "trained_models", "best_models", "logs", "polynomial_linear_model_100km.txt")
 
 COLS_TO_SCALE_STD = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 
@@ -40,8 +41,8 @@ if __name__ == "__main__":
     best_mae = 10000
     df_train = pd.read_csv(FILE_TRAINING_DATA, parse_dates=["arrival_time", "timestamp"])
     df_test = pd.read_csv(FILE_TEST_DATA, parse_dates=["arrival_time", "timestamp"])
-    y_train = seconds_till_arrival(df_train)
-    y_test = seconds_till_arrival(df_test)
+    y_train = seconds_till_arrival(df_train)/df_train.distance
+    y_test = seconds_till_arrival(df_test)/df_test.distance
     for i in range(1, 20):
         degrees = i
         model = LinearModel(
@@ -79,7 +80,7 @@ if __name__ == "__main__":
         else:
             break
 
-    model_file = os.path.join(PATH_MODEL, "polynomial_regression_all_dist_" + str(degrees -1) + ".sav")
+    model_file = os.path.join(PATH_MODEL, "polynomial_regression_100km_rel" + str(degrees -1) + ".sav")
     dump(best_model, model_file)
     """
     doesn't work yet for some reason
