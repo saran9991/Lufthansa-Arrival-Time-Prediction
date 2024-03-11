@@ -271,5 +271,5 @@ class VanillaNN():
         if "class" in ax.get_xlabel():
             ax.set_xlabel('')
         # Save the plot
-        plt.savefig(file, bbox_inches='tight', dpi=300)
+        plt.savefig(file, bbox_inches='tight', dpi=900)
         plt.close()  # Optional: close the figure after saving
