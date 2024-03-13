@@ -46,6 +46,8 @@ if __name__ == "__main__":
     for i in range(1, 20):
         degrees = i
         model = LinearModel(
+            std_scaler=std_scaler,
+            minmax_scaler=minmax_scaler,
             features=FEATURES,
             pol_degree=degrees,
             cols_to_scale_std=COLS_TO_SCALE_STD,

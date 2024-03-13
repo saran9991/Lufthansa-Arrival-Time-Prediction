@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import shap
+from sklearn.metrics import r2_score
 from tensorflow.keras import Sequential
 from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Input, LeakyReLU, Dropout, Dense, LSTM
@@ -136,11 +137,15 @@ class LSTMNN():
             predictions_absolute = predictions_relative * distances
             # Calculate and return both losses using the retrieved loss function
             loss_relative = float(loss_fn(y, predictions_relative).numpy())
+            r2_relative = r2_score(y, predictions_relative)
             loss_absolute = float(loss_fn(y * distances, predictions_absolute).numpy())
+            r2_absolute = r2_score(y * distances, predictions_absolute)
             print(f"Evaluation Results:\n"
                   f" - Loss (relative to distance): {loss_relative:.4f}\n"
-                  f" - Loss (absolute): {loss_absolute:.4f}\n")
-            return loss_relative, loss_absolute
+                  f" - Loss (absolute): {loss_absolute:.4f}\n"
+                  f" - R2 (relative to distance): {r2_relative:.4f}\n"
+                  f" - R2 (absolute): {r2_absolute:.4f}\n")
+            return loss_relative, loss_absolute, r2_relative, r2_absolute
 
         loss = self.model.evaluate(X, y)
         print(f"Evaluation Result:\n"

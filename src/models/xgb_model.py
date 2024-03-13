@@ -15,10 +15,11 @@ class XGBModel:
 
     def evaluate(self, X_test: pd.DataFrame, y_test: pd.Series) -> (float, float):
         y_pred = self.predict(X_test)
+        mae_relative = mean_absolute_error(y_test, y_pred/ X_test['distance'])
         mae = mean_absolute_error(y_test * X_test['distance'], y_pred)
-        mae_relative = mean_absolute_error(y_test * X_test['distance'], y_pred)
         r2 = r2_score(y_test * X_test['distance'], y_pred)
-        return mae,mae_relative, r2
+        r2_relative = r2_score(y_test, y_pred/X_test['distance'])
+        return mae,mae_relative, r2, r2_relative
 
     def predict(self, X: pd.DataFrame) -> pd.Series:
         predictions = pd.Series(self.model.predict(X))

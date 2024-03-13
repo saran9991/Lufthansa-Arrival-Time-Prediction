@@ -14,7 +14,7 @@ FILE_TEST_DATA = os.path.join(DIR_TEST_DATA,"testdata_2023_comparable.csv")
 
 PATH_STD_SCALER = os.path.join("..", "..", "trained_models", "scalers", "std_scaler_all_distances.bin")
 PATH_MINMAX_SCALER = os.path.join("..", "..", "trained_models", "scalers", "minmax_scaler_all_distances_h3.bin")
-PATH_MODEL ="C:/Users/dario/Documents/Master Data Science/Lufthansa/Lufthansa-Arrival-Time-Prediction/trained_models/best_models/fnn_full_distance"
+PATH_MODEL ="C:/Users/dario/Documents/Master Data Science/Lufthansa/Lufthansa-Arrival-Time-Prediction/trained_models/best_models/fnn_full_distance_new"
 
 COLS_TO_SCALE_STD = ["distance", "altitude", "geoaltitude", "vertical_rate", "groundspeed"]
 
@@ -46,7 +46,7 @@ FEATURES = [
     'weekday_6',
     "density_10_minutes_past",
     "density_30_minutes_past",
-    "density_30_minutes_past",
+    "density_60_minutes_past",
 ]
 
 batch_size= 298
