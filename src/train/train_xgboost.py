@@ -16,6 +16,7 @@ PATH_TEST_DATA = '../../data/test_data/test_data_2023_Jan-Mai.csv'
 PATH_MODEL = os.path.join("..", "..", "trained_models", "xgb_saved_model.model")
 PATH_PRE_PROCESSED_TRAIN_DATA = '../../data/pre_processed/train_data_xgb.csv'
 PATH_PRE_PROCESSED_TEST_DATA = '../../data/pre_processed/test_data_xgb.csv'
+BEST_PARAMS_PATH = os.path.join('..', '..', 'trained_models', 'best_params.json')
 
 FEATURES = [
     'distance', 'altitude', 'vertical_rate', 'groundspeed', 'holiday',
@@ -56,7 +57,8 @@ def tune_hyperparameters(X_train, y_train, tree_method):
                              subsample=subsample,
                              colsample_bytree=colsample_bytree,
                              reg_alpha=reg_alpha,
-                             tree_method=tree_method)
+                             tree_method=tree_method,
+                             objective = 'reg:absoluteerror')
         xgb_model.fit(X_train, y_train)
 
         # Evaluate the model on the test set
@@ -76,7 +78,7 @@ def tune_hyperparameters(X_train, y_train, tree_method):
 
     # Configure the optimizer with the function and parameter bounds
     optimizer = BayesianOptimization(f=optimize_xgb, pbounds=bounds, random_state=1)
-    optimizer.maximize(init_points=2, n_iter=5)
+    optimizer.maximize(init_points=10, n_iter=100)
 
     # Extract the best parameters and their corresponding MAE
     best_params = optimizer.max['params']
@@ -114,13 +116,12 @@ if __name__ == "__main__":
     '''
 
     best_params = tune_hyperparameters(X_train, y_train, TREE_METHOD) #Bayesian Optimization
-    best_params_path = os.path.join('..', '..', 'trained_models', 'best_params.json')
-    with open(best_params_path, 'w') as f:
+    with open(BEST_PARAMS_PATH, 'w') as f:
         json.dump(best_params, f)
-    print(f"Best parameters saved to {best_params_path}")
+    print(f"Best parameters saved to {BEST_PARAMS_PATH}")
 
     print('Training XGB on Optimal Paramter Configuration')
-    xgb_model = XGBModel(**best_params, tree_method = TREE_METHOD)
+    xgb_model = XGBModel(**best_params, tree_method = TREE_METHOD, objective = 'reg:absoluteerror')
     xgb_model.fit(X_train, y_train)
     mae, mae_relative, r2 = xgb_model.evaluate(X_test, y_test)
     print(f"Mean Absolute Error: {mae}")
