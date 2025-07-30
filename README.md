@@ -5,12 +5,10 @@
 <h2 align="center"></h2>
 
 <p align="center">
-  <img src="./src/readme_utils/h3_res.png"              width="35%" alt="H3 resolution along trajectory">
-  <img src="./src/readme_utils/patterns_near_airport.png" width="40%" alt="Flight patterns near FRA">
+  <img src="./src/readme_utils/h3_res.png"              width="45%" alt="H3 resolution along trajectory">
+  <img src="./src/readme_utils/patterns_near_airport.png" width="53%" alt="Flight patterns near FRA">
 </p>
 
-
-</p>
 ---
 
 ## Overview
@@ -24,7 +22,7 @@ Key points:
 
 
 
-## Approach at a glance
+## Feature set & modelling
 
 * **Features:**
   * Position (distance‑to‑runway, sine/cos‑encoded lat / lon and  bearing)
