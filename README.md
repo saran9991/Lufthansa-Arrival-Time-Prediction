@@ -5,10 +5,9 @@
 <h2 align="center"></h2>
 
 <p align="center">
-  <img src="./src/readme_utils/GERFRA.png"   width="385" alt="Arriving flights to FRA">
-  &nbsp;&nbsp;<!-- spacer -->
-  <img src="./src/readme_utils/h3_res.png" width="620" alt="Varying flight trajectory H3 Cell Resolutions">
-  <img src="./src/readme_utils/patterns_near_airport.png" width="720" alt="Flight patterns in H3 cells near FRA">
+  <img src="./src/readme_utils/h3_res.png"              width="35%" alt="H3 resolution along trajectory">
+  <img src="./src/readme_utils/patterns_near_airport.png" width="40%" alt="Flight patterns near FRA">
+</p>
 
 
 </p>
