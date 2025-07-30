@@ -27,7 +27,7 @@ Key points:
 * **Features:**
   * Position (distance‑to‑runway, sine/cos‑encoded lat / lon and  bearing)
   * Kinematics (altitude, vertical speed, ground speed)
-  * Dynamic H3 traffic density
+  * H3 traffic density over the past 10 / 30 / 60 minutes
   * Calendar & cyclic time (weekday, holiday, sine/cos‑encoded time‑of‑day and day‑of‑year)
 * **Targets:** seconds‑to‑touchdown (full) or seconds‑to‑touchdown within 100 km
 * **Models:** polynomial regression, XGBoost, MLP, LSTM
